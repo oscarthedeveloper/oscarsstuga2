@@ -1,0 +1,40 @@
+{
+  "name": "Kalendariet",
+  "short_name": "Kalendariet",
+  "description": "Kalender med dags-, tredagars-, vecko-, månads- och årsvy. Fungerar utan nät.",
+  "lang": "sv",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#FDFBEF",
+  "theme_color": "#FDFBEF",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/ikon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/ikon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/ikon-maskerbar-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/ikon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

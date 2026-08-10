@@ -1,0 +1,52 @@
+# ===================================================================
+# NETLIFY
+#
+# Bygget är en ren statisk export — ingen Next-runtime, inga
+# serverfunktioner, ingen plugin. Netlify serverar mappen `out` rakt av.
+#
+# Miljövariablerna sätts i Netlify: Site configuration → Environment
+# variables. Lägg NEXT_PUBLIC_SUPABASE_URL och
+# NEXT_PUBLIC_SUPABASE_ANON_KEY där. Utan dem byggs appen ändå, men utan
+# molnfunktioner.
+# ===================================================================
+
+[build]
+  command = "npm run build"
+  publish = "out"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# -------------------------------------------------------------------
+# HUVUDEN
+# -------------------------------------------------------------------
+
+# Service workern får ALDRIG cachas av webbläsaren. Gör den det kan en
+# gammal arbetare hålla kvar en gammal app i evighet, och användaren har
+# ingen väg ur det utom att rensa webbplatsdata.
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+    Service-Worker-Allowed = "/"
+
+[[headers]]
+  for = "/manifest.webmanifest"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+    Content-Type = "application/manifest+json; charset=utf-8"
+
+# Next ger varje bunt ett innehållshash i filnamnet. En fil med ett visst
+# namn kan därför aldrig ändras, och får cachas för alltid.
+[[headers]]
+  for = "/_next/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "geolocation=(), microphone=(), camera=(), interest-cohort=()"
