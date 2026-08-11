@@ -131,6 +131,31 @@ Arbete på telefonen skall inte dölja den på datorn.
 
 ## Felsökning
 
+**Börja alltid här:** statusknappen uppe till höger → **Felsökning** →
+*Kontrollera molnet*. Den läser OCH skriver på riktigt mot databasen och
+svarar på fem frågor: har bygget nycklar, vilket projekt pratar appen med,
+är enheten inloggad, svarar tabellerna, och går en skrivning igenom.
+Databasens oöversatta svar visas längst ned.
+
+**Det synkas ingenting, någonstans.** Nästan alltid en av två saker, och
+båda ser ut precis som en fungerande kalender:
+
+1. **Du är inte inloggad.** Utan inloggning skickas ingenting upp och
+   ingenting hämtas ner — appen sparar lokalt och ser helt normal ut.
+   Kontot skapas i Supabase under **Authentication → Users**, inte i
+   appen. Appen frågar numera själv första gången den startar utan
+   session, och visar en röd remsa så länge läget består.
+2. **Bygget saknar nycklarna.** `NEXT_PUBLIC_*`-värdena bakas in vid
+   bygget, inte vid besöket. Lägger du in dem i Netlify måste du köra
+   **Trigger deploy → Clear cache and deploy site** efteråt; en vanlig
+   omladdning i webbläsaren räcker inte. Lokalt måste `next dev` startas
+   om efter en ändring i `.env.local`.
+
+**Skrivning nekas men läsning fungerar.** `using` och `with check` i
+radnivåsäkerheten styr två olika saker. Saknas `with check` avvisas varje
+skrivning, och kalendern ser ut att fungera ända tills man tittar i
+databasen. Kör om `supabase/schema.sql`.
+
 **"Tabellerna saknas i databasen."** `schema.sql` är inte kört ännu.
 
 **Inloggningen fungerar men inget synkas.** Kontrollera att RLS-reglerna
@@ -149,7 +174,7 @@ inloggad, och svarar tabellerna. Antalet poster i molnet visas också — står
 det noll har ingenting kommit upp, står det rätt siffra är det hämtningen
 som är problemet.
 
-Knappen **Hämta om allt från molnet** glömmer var synkningen stod och
-hämtar hela kalendern på nytt. Inget lokalt innehåll går förlorat; det
+Knappen **↻** i navigeringsraden, bredvid statusknappen, glömmer var
+synkningen stod och hämtar hela kalendern på nytt. Inget lokalt innehåll går förlorat; det
 sammanfogas som vanligt. Det är rätt åtgärd om en enhet av någon anledning
 hamnat ur fas.

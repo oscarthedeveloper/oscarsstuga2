@@ -20,6 +20,20 @@ const NYCKEL = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 /** Sant om bygget har fått nycklar. Avgör om molnfunktionerna visas alls. */
 export const MOLNET_FINNS = Boolean(URL && NYCKEL);
 
+/**
+ * Värdnamnet, för diagnosen. Att se vilket projekt appen faktiskt pratar
+ * med är ofta hela svaret: nycklarna kan mycket väl peka på ett annat
+ * Supabase-projekt än det man tittar i.
+ */
+export const SUPABASE_VARD = (() => {
+  if (!URL) return null;
+  try {
+    return new globalThis.URL(URL).host;
+  } catch {
+    return URL;
+  }
+})();
+
 let klient: SupabaseClient | null = null;
 
 export function hamtaKlient(): SupabaseClient | null {

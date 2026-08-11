@@ -24,7 +24,7 @@ import ArsVy from "./vyer/ArsVy";
 import HandelsePanel from "./HandelsePanel";
 import KalenderPanel from "./KalenderPanel";
 import Kommandopalett, { type Kommando } from "./Kommandopalett";
-import KontoPanel, { KontoKnapp } from "./Konto";
+import KontoPanel, { HamtaKnapp, KontoKnapp, MolnRemsa } from "./Konto";
 import { useMobil } from "@/lib/anvandMedia";
 import {
   addDagar,
@@ -60,6 +60,22 @@ export default function KalenderApp() {
   const [lada, setLada] = useState(false);
   const [konto, setKonto] = useState(false);
   const mobil = useMobil();
+
+  /*
+   * Första gången appen öppnas i ett bygge som HAR molnnycklar men saknar
+   * session öppnas kontopanelen av sig själv. Att bara visa en liten
+   * knapp räckte inte: appen fungerar perfekt utan inloggning, så det
+   * finns ingenting som får en att leta efter den.
+   */
+  const harFragat = useRef(false);
+  useEffect(() => {
+    if (harFragat.current || !butik.laddad || !butik.molnetFinns) return;
+    if (butik.session) return;
+    if (window.localStorage.getItem("kalendariet.harfragat") === "1") return;
+    harFragat.current = true;
+    window.localStorage.setItem("kalendariet.harfragat", "1");
+    setKonto(true);
+  }, [butik.laddad, butik.molnetFinns, butik.session]);
 
   // Veckovyn är rätt förstaval på en skärm, men sju kolumner på en telefon
   // blir sju remsor som ingen kan läsa. Byte sker en gång, vid första
@@ -259,6 +275,18 @@ export default function KalenderApp() {
         utfor: butik.gorOm,
       },
       {
+        id: "hamta-om",
+        namn: "Hämta om allt från molnet",
+        grupp: "Molnet",
+        utfor: () => void butik.synkaOmAllt(),
+      },
+      {
+        id: "synka",
+        namn: "Synka nu",
+        grupp: "Molnet",
+        utfor: () => void butik.synkaNu(),
+      },
+      {
         id: "hantera-kalendrar",
         namn: "Hantera kalendrar — lägg till, byt namn, ta bort",
         grupp: "Kalendrar",
@@ -456,6 +484,11 @@ export default function KalenderApp() {
           />
         </div>
 
+        {/* Säger rakt ut när ingenting synkas. Två tysta lägen — bygge
+            utan nycklar, och enhet utan inloggning — ser annars ut precis
+            som en fungerande kalender. */}
+        <MolnRemsa onOppna={() => setKonto(true)} />
+
         {/* Navigering */}
         <nav className="h-[50px] md:h-[52px] shrink-0 bg-azure border-b border-ink flex items-center justify-between px-2 md:px-3 gap-2 md:gap-3">
           <div className="flex items-center gap-2 md:gap-3 min-w-0">
@@ -522,6 +555,7 @@ export default function KalenderApp() {
               ))}
             </div>
 
+            <HamtaKnapp />
             <KontoKnapp onOppna={() => setKonto(true)} />
 
             <button

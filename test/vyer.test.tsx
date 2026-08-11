@@ -216,6 +216,17 @@ prov("appskalet ritas utan att kasta", () => {
   innehaller(html, "Hantera");
   // Lagret startar tomt: kolofonen skall räkna noll poster.
   innehaller(html, "0 poster");
+  // Tvångshämtningen kan inte göra något utan inloggning och skall inte
+  // ritas — men statusknappen SKALL finnas, annars har den som undrar
+  // varför inget synkas ingenstans att fråga.
+  if (html.includes('aria-label="Hämta om allt från molnet"')) {
+    throw new Error("hämtaknappen visas trots att molnet är avstängt");
+  }
+  innehaller(html, "Konto och synkning");
+  // Remsan som varnar för att inget synkas ritas medvetet FÖRST efter
+  // monteringen: den läser localStorage för att se om den avfärdats, och
+  // det går inte att göra under serverrenderingen utan att riskera en
+  // hydreringskrock. Därför mäts den inte här.
   // Kolofonremsorna i topp och botten hör till designsystemet.
   innehaller(html, "Lokalt lager");
 });

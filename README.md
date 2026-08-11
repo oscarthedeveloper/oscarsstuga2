@@ -117,6 +117,13 @@ Den lokala kopian är den appen ritar och skriver mot, alltid. Molnet är en
 spegel som hinner ikapp. Ingenting i gränssnittet väntar på en
 nätverksrunda.
 
+Två lägen gör att ingenting synkas trots att appen ser helt normal ut:
+bygget saknar molnnycklar, eller enheten är inte inloggad. Båda syns nu
+som en röd remsa högst upp, och inloggningen öppnas av sig själv första
+gången ett bygge med nycklar startar utan session. Att bara visa en liten
+knapp räckte inte — appen fungerar perfekt utan inloggning, så ingenting
+får en att leta efter den.
+
 Statusknappen i navigeringsraden säger alltid sanningen med ett ord:
 *Synkad*, *Offline*, `↑ 3`, eller *Logga in*. Ändringar gjorda offline
 ligger kvar och skickas upp när nätet kommer tillbaka. Bakom knappen finns
@@ -125,6 +132,14 @@ en felsökningsruta som frågar molnet på riktigt när något inte kommer fram.
 Molnet knackar på via Supabase Realtime när en annan enhet skrivit, så en
 kalender som ligger uppslagen på två skärmar håller sig i takt. Pollning
 var trettionde sekund finns kvar som reserv.
+
+Bredvid statusknappen sitter **↻** — tvångshämtningen. Den glömmer var
+synkningen stod och läser om hela kalendern från Supabase, och visar sedan
+kort hur många poster som kom hem. Lokala ändringar sammanfogas som
+vanligt och skickas upp i samma körning, så ingenting kan gå förlorat.
+Samma sak finns i paletten som *Hämta om allt från molnet*. Knappen ritas
+bara när bygget har molnnycklar och enheten är inloggad — en knapp som
+inte kan göra något är värre än ingen knapp alls.
 
 Vid krock vinner senaste ändringen hela posten. Borttagningar sker med
 gravstenar, så att en post inte återuppstår när en enhet som varit offline

@@ -24,6 +24,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Handelse, Kalender, Synkbar, Upprepning } from "./typer";
 import {
+  SUPABASE_VARD,
   TABELL_HANDELSER,
   TABELL_KALENDRAR,
   hamtaKlient,
@@ -42,6 +43,8 @@ export interface SynkLage {
   tillstand: SynkTillstand;
   /** Antal poster som väntar på att skickas upp. */
   ivag: number;
+  /** Antal poster som hämtades hem i den senaste lyckade körningen. */
+  ner: number;
   /** När den senaste lyckade körningen avslutades. */
   sist: string | null;
   meddelande?: string;
@@ -65,6 +68,13 @@ const NOLLTID = "1970-01-01T00:00:00.000Z";
  * är idempotent — och stänger luckan.
  */
 const MARGINAL_MS = 60_000;
+
+/**
+ * Id som börjar med två understreck tillhör maskineriet, inte kalendern.
+ * De filtreras bort ur hämtningen så att diagnosens skrivprovsrad aldrig
+ * kan dyka upp som en händelse.
+ */
+const INTERNT = "__";
 
 export function lasMarkor(anvandarId: string): string {
   if (typeof window === "undefined") return NOLLTID;
@@ -344,11 +354,17 @@ export async function synka(
   if (svarH.error) throw new Error(oversattRadfel(svarH.error.message));
   if (svarK.error) throw new Error(oversattRadfel(svarK.error.message));
 
-  const fjarrH = (svarH.data ?? []) as HandelseRad[];
-  const fjarrK = (svarK.data ?? []) as KalenderRad[];
-  for (const r of fjarrH) senare(r.synk_vid);
-  for (const r of fjarrK) senare(r.synk_vid);
-
+  // Provraden från diagnosen bär ett internt id och hör inte hemma i
+  // kalendern. Markören flyttas ändå av den, vilket är riktigt: den har
+  // hämtats.
+  const fjarrH = ((svarH.data ?? []) as HandelseRad[]).filter(
+    (r) => !r.id.startsWith(INTERNT)
+  );
+  const fjarrK = ((svarK.data ?? []) as KalenderRad[]).filter(
+    (r) => !r.id.startsWith(INTERNT)
+  );
+  for (const r of (svarH.data ?? []) as HandelseRad[]) senare(r.synk_vid);
+  for (const r of (svarK.data ?? []) as KalenderRad[]) senare(r.synk_vid);
   let data: Ogonblick = {
     handelser: sammanfoga(lokal.handelser, fjarrH.map(franRad)),
     kalendrar: sammanfogaKalendrar(
@@ -454,12 +470,20 @@ export function oversattRadfel(meddelande: string): string {
 
 export interface Diagnos {
   nycklar: boolean;
+  /** Adressen till projektet, så man ser att rätt projekt är inkopplat. */
+  vardnamn: string | null;
   inloggad: boolean;
+  epost: string | null;
   tabeller: "ok" | "saknas" | "fel" | "okand";
+  /** Om en riktig skrivning gick igenom. Läsning kan lyckas där skrivning faller. */
+  skrivning: "ok" | "nekad" | "fel" | "oprovad";
   antalIMolnet: number | null;
   markor: string;
   meddelande: string;
+  /** Oöversatt svar från databasen, för den som vill söka på texten. */
+  ratext: string | null;
 }
+
 
 /**
  * Svarar på frågan "varför synkas det inte". Kör en riktig förfrågan mot
@@ -468,51 +492,110 @@ export interface Diagnos {
  */
 export async function diagnostisera(
   anvandarId: string | null,
+  epost: string | null = null,
   klient: SupabaseClient | null = hamtaKlient()
 ): Promise<Diagnos> {
   const bas: Diagnos = {
     nycklar: !!klient,
+    vardnamn: SUPABASE_VARD,
     inloggad: !!anvandarId,
+    epost,
     tabeller: "okand",
+    skrivning: "oprovad",
     antalIMolnet: null,
     markor: anvandarId ? lasMarkor(anvandarId) : NOLLTID,
     meddelande: "",
+    ratext: null,
   };
 
   if (!klient) {
     return {
       ...bas,
       meddelande:
-        "Bygget saknar molnnycklar. Sätt NEXT_PUBLIC_SUPABASE_URL och NEXT_PUBLIC_SUPABASE_ANON_KEY i Netlify och bygg om.",
+        "Bygget saknar molnnycklar. Sätt NEXT_PUBLIC_SUPABASE_URL och NEXT_PUBLIC_SUPABASE_ANON_KEY och bygg om — lokalt i .env.local, på Netlify under Environment variables.",
     };
   }
   if (!anvandarId) {
-    return { ...bas, meddelande: "Inte inloggad." };
+    return {
+      ...bas,
+      meddelande:
+        "Inte inloggad. Utan inloggning skickas ingenting upp och ingenting hämtas ner — allt stannar på den här enheten. Skapa kontot i Supabase under Authentication → Users och logga in här.",
+    };
   }
 
   try {
-    const svar = await klient
+    /* --- Läsning ---------------------------------------------------- */
+    const las = await klient
       .from(TABELL_HANDELSER)
       .select("id", { count: "exact", head: true });
-    if (svar.error) {
-      const text = oversattRadfel(svar.error.message);
+    if (las.error) {
+      const text = oversattRadfel(las.error.message);
       return {
         ...bas,
         tabeller: text.includes("saknas") ? "saknas" : "fel",
         meddelande: text,
+        ratext: las.error.message,
       };
     }
+
+    /* --- Skrivning --------------------------------------------------
+       Läsning kan lyckas där skrivning faller: `using` i RLS styr vad
+       man får se, `with check` vad man får skriva. Saknas det senare
+       avvisas varje skrivning tyst, och kalendern ser ut att fungera
+       ända tills man tittar i databasen. Provet skriver därför på
+       riktigt — en gravsatt rad som aldrig kan synas i kalendern. */
+    const provrad = {
+      agare: anvandarId,
+      id: `${INTERNT}diagnos`,
+      titel: "Skrivprov",
+      anteckning: "",
+      plats: "",
+      starttid: "2000-01-01T00:00",
+      sluttid: "2000-01-01T00:01",
+      heldag: false,
+      kalender_id: `${INTERNT}diagnos`,
+      upprepning: null,
+      undantag: [],
+      avvikelser: {},
+      skapad: new Date().toISOString(),
+      andrad: new Date().toISOString(),
+      raderad: new Date().toISOString(),
+    };
+    const skriv = await klient
+      .from(TABELL_HANDELSER)
+      .upsert(provrad, { onConflict: "agare,id" })
+      .select("id");
+
+    if (skriv.error) {
+      const nekad =
+        skriv.error.message.toLowerCase().includes("row-level security") ||
+        (skriv.error as { code?: string }).code === "42501";
+      return {
+        ...bas,
+        tabeller: "ok",
+        skrivning: nekad ? "nekad" : "fel",
+        antalIMolnet: (las.count ?? 0) - 1,
+        meddelande: nekad
+          ? "Läsning fungerar men skrivning avvisas av radnivåsäkerheten. Kör om supabase/schema.sql — `with check` saknas i policyn."
+          : oversattRadfel(skriv.error.message),
+        ratext: skriv.error.message,
+      };
+    }
+
     return {
       ...bas,
       tabeller: "ok",
-      antalIMolnet: svar.count ?? null,
-      meddelande: "Molnet svarar och tabellerna finns.",
+      skrivning: "ok",
+      // Provraden räknas inte som en kalenderpost.
+      antalIMolnet: Math.max(0, (las.count ?? 0) - 1),
+      meddelande: "Molnet svarar, tabellerna finns och skrivning går igenom.",
     };
   } catch (e) {
     return {
       ...bas,
       tabeller: "fel",
       meddelande: oversattRadfel((e as Error).message),
+      ratext: (e as Error).message,
     };
   }
 }

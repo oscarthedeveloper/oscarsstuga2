@@ -433,6 +433,7 @@ export default function ButikProvider({
   const [synkLage, setSynkLage] = useState<SynkLage>({
     tillstand: MOLNET_FINNS ? "utloggad" : "av",
     ivag: 0,
+    ner: 0,
     sist: null,
   });
 
@@ -473,6 +474,11 @@ export default function ButikProvider({
     setSynkLage((l) => ({ ...l, tillstand: "synkar", meddelande: undefined }));
     try {
       const resultat = await synka(dataRef.current, anvandare, klient);
+      // Ett spår i konsolen. När något inte kommer fram är devtools det
+      // första man öppnar, och då skall det stå något där.
+      console.info(
+        `[kalendariet] synk klar — ${resultat.ner} ner, ${resultat.upp} upp`
+      );
 
       // Innehållet kan ha ändrats under tiden nätverket arbetade. Därför
       // sätts resultatet inte rakt av, utan sammanfogas en gång till mot
@@ -501,11 +507,13 @@ export default function ButikProvider({
       setSynkLage({
         tillstand: "vilande",
         ivag: 0,
+        ner: resultat.ner,
         sist: new Date().toISOString(),
       });
     } catch (e) {
       // Ett misslyckande är inte en katastrof: allt ligger kvar lokalt
       // och försöket görs om. Felet visas men blockerar ingenting.
+      console.warn("[kalendariet] synk misslyckades:", e);
       setSynkLage((l) => ({
         ...l,
         tillstand: "fel",
@@ -644,7 +652,7 @@ export default function ButikProvider({
   }, [session, synkaNu]);
 
   const stallDiagnos = useCallback(
-    () => diagnostisera(session?.user?.id ?? null),
+    () => diagnostisera(session?.user?.id ?? null, session?.user?.email ?? null),
     [session]
   );
 
@@ -652,7 +660,12 @@ export default function ButikProvider({
     const klient = hamtaKlient();
     if (!klient) return;
     await klient.auth.signOut();
-    setSynkLage({ tillstand: "utloggad", ivag: antalIvag(dataRef.current), sist: null });
+    setSynkLage({
+      tillstand: "utloggad",
+      ivag: antalIvag(dataRef.current),
+      ner: 0,
+      sist: null,
+    });
   }, []);
 
   const synligaIder = useMemo(

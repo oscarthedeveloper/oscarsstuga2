@@ -54,17 +54,145 @@ function Lampa({ lage }: { lage: SynkLage }) {
 }
 
 export function KontoKnapp({ onOppna }: { onOppna(): void }) {
-  const { synkLage, molnetFinns } = useButik();
-  if (!molnetFinns) return null;
+  const { synkLage } = useButik();
+  // Knappen visas ALLTID, även i ett bygge utan molnnycklar. Att dölja
+  // den när molnet är avstängt lät prydligt, men gjorde att den som
+  // undrade "varför synkas det inte" inte hade någonstans att fråga.
+  const kravInsats =
+    synkLage.tillstand === "utloggad" || synkLage.tillstand === "fel";
   return (
     <button
       type="button"
       className="knapp micro flex items-center gap-1.5"
       onClick={onOppna}
       title="Konto och synkning"
+      data-ton={kravInsats ? "accent" : undefined}
     >
       <Lampa lage={synkLage} />
-      <span className="hidden sm:inline">{synkText(synkLage)}</span>
+      {/* Texten göms normalt på mobilen för att spara bredd — men aldrig
+          när något behöver åtgärdas. Då är den hela poängen. */}
+      <span className={kravInsats ? "" : "hidden sm:inline"}>
+        {synkText(synkLage)}
+      </span>
+    </button>
+  );
+}
+
+const AVFARDAD = "kalendariet.molnremsa.avfardad";
+
+/**
+ * Remsan som säger att ingenting synkas.
+ *
+ * Det finns två tysta lägen där appen fungerar perfekt men molnet aldrig
+ * rörs: bygget saknar nycklar, eller enheten är inte inloggad. Båda ser
+ * ut precis som en fungerande kalender. Den här remsan är det enda som
+ * skiljer "allt är bra" från "ingenting av det du gör lämnar den här
+ * enheten", och därför får den ta plats.
+ */
+export function MolnRemsa({ onOppna }: { onOppna(): void }) {
+  const { molnetFinns, session, synkLage } = useButik();
+  const [avfardad, setAvfardad] = useState(true);
+
+  useEffect(() => {
+    setAvfardad(window.localStorage.getItem(AVFARDAD) === "1");
+  }, []);
+
+  if (session) return null;
+  if (synkLage.tillstand === "av" && avfardad) return null;
+  if (molnetFinns && avfardad && synkLage.ivag === 0) return null;
+
+  const utanNycklar = !molnetFinns;
+
+  return (
+    <div className="shrink-0 border-b border-ink bg-accent text-ink px-3 py-1.5 flex items-center gap-2 flex-wrap">
+      <span className="micro">
+        {utanNycklar
+          ? "Molnet är inte inkopplat i det här bygget"
+          : "Inte inloggad — ingenting synkas"}
+      </span>
+      <span className="pico opacity-80 flex-1 min-w-[12rem]">
+        {utanNycklar
+          ? "Allt du skriver stannar på den här enheten."
+          : `Allt du skriver stannar på den här enheten${
+              synkLage.ivag > 0 ? ` (${synkLage.ivag} väntar)` : ""
+            }.`}
+      </span>
+      <button type="button" className="knapp pico" onClick={onOppna}>
+        {utanNycklar ? "Läs mer" : "Logga in"}
+      </button>
+      <button
+        type="button"
+        className="pico opacity-70 hover:opacity-100 px-1"
+        onClick={() => {
+          window.localStorage.setItem(AVFARDAD, "1");
+          setAvfardad(true);
+        }}
+        aria-label="Dölj"
+        title="Dölj — statusknappen visar det ändå"
+      >
+        ✕
+      </button>
+    </div>
+  );
+}
+
+/**
+ * Tvångshämtning.
+ *
+ * Glömmer var synkningen stod och läser om hela kalendern från Supabase.
+ * Den vanliga synken räcker nästan alltid — men "nästan alltid" är inte
+ * gott nog när man står med telefonen i handen och undrar var mötet tog
+ * vägen. Då skall det finnas en knapp som gör precis en sak, direkt, utan
+ * att man först måste leta i en panel.
+ *
+ * Ingenting kan gå förlorat: lokala ändringar sammanfogas som vanligt och
+ * skickas upp i samma körning.
+ */
+export function HamtaKnapp() {
+  const { molnetFinns, session, synkLage, synkaOmAllt } = useButik();
+  const [kvitto, setKvitto] = useState<string | null>(null);
+  const timerRef = useRef<number | null>(null);
+
+  useEffect(
+    () => () => {
+      if (timerRef.current) window.clearTimeout(timerRef.current);
+    },
+    []
+  );
+
+  if (!molnetFinns || !session) return null;
+
+  const arbetar = synkLage.tillstand === "synkar";
+
+  const kor = async () => {
+    setKvitto(null);
+    await synkaOmAllt();
+    // Kvittot läses ur butikens läge efter körningen. Att visa "hämtade
+    // N" en kort stund är hela skillnaden mellan en knapp man litar på
+    // och en som känns som om den inte gjorde något.
+    setKvitto("klart");
+    if (timerRef.current) window.clearTimeout(timerRef.current);
+    timerRef.current = window.setTimeout(() => setKvitto(null), 3000);
+  };
+
+  const etikett = arbetar
+    ? "…"
+    : kvitto
+    ? synkLage.tillstand === "fel"
+      ? "✕"
+      : `✓ ${synkLage.ner}`
+    : "↻";
+
+  return (
+    <button
+      type="button"
+      className="knapp micro tabnum"
+      onClick={() => void kor()}
+      disabled={arbetar}
+      title="Hämta om allt från Supabase. Lokala ändringar behålls och skickas upp."
+      aria-label="Hämta om allt från molnet"
+    >
+      {etikett}
     </button>
   );
 }
@@ -167,9 +295,20 @@ export default function KontoPanel({ onStang }: { onStang(): void }) {
 
           {!molnetFinns && (
             <p className="pico opacity-55 leading-relaxed">
-              Det här bygget har inga molnnycklar. Kalendern fungerar precis som
-              vanligt, men bara på den här enheten. Se README för hur du kopplar
-              på Supabase.
+              Det här bygget har inga molnnycklar —{" "}
+              <b>NEXT_PUBLIC_SUPABASE_URL</b> och{" "}
+              <b>NEXT_PUBLIC_SUPABASE_ANON_KEY</b> saknas. Kalendern fungerar
+              precis som vanligt, men bara på den här enheten. Lokalt sätts de i{" "}
+              <b>.env.local</b>, på Netlify under Environment variables — och
+              bygget måste köras om efteråt, eftersom värdena bakas in vid
+              bygget.
+            </p>
+          )}
+
+          {molnetFinns && !session && (
+            <p className="pico opacity-55 leading-relaxed">
+              Utan inloggning skickas ingenting upp och ingenting hämtas ner.
+              Kontot skapas i Supabase under <b>Authentication → Users</b>.
             </p>
           )}
 
@@ -233,79 +372,13 @@ export default function KontoPanel({ onStang }: { onStang(): void }) {
                 Synka nu
               </button>
 
-              {/* Felsökning — normalt tillstånd behöver den inte, men när
-                  något inte kommer fram är det här man tittar. */}
-              <details className="border border-ink">
-                <summary className="micro px-2.5 py-2 cursor-pointer select-none">
-                  Felsökning
-                </summary>
-                <div className="px-2.5 pb-2.5 flex flex-col gap-2">
-                  <button
-                    type="button"
-                    className="knapp micro"
-                    onClick={async () => {
-                      setDiagnos(null);
-                      setStaller(true);
-                      setDiagnos(await stallDiagnos());
-                      setStaller(false);
-                    }}
-                    disabled={staller}
-                  >
-                    {staller ? "Kontrollerar…" : "Kontrollera molnet"}
-                  </button>
-
-                  {diagnos && (
-                    <dl className="flex flex-col gap-1">
-                      <Rad
-                        namn="Nycklar i bygget"
-                        varde={diagnos.nycklar ? "Ja" : "Nej"}
-                        bra={diagnos.nycklar}
-                      />
-                      <Rad
-                        namn="Inloggad"
-                        varde={diagnos.inloggad ? "Ja" : "Nej"}
-                        bra={diagnos.inloggad}
-                      />
-                      <Rad
-                        namn="Tabeller"
-                        varde={
-                          diagnos.tabeller === "ok"
-                            ? "Svarar"
-                            : diagnos.tabeller === "saknas"
-                            ? "Saknas"
-                            : diagnos.tabeller === "fel"
-                            ? "Fel"
-                            : "Okänt"
-                        }
-                        bra={diagnos.tabeller === "ok"}
-                      />
-                      {diagnos.antalIMolnet !== null && (
-                        <Rad
-                          namn="Poster i molnet"
-                          varde={String(diagnos.antalIMolnet)}
-                          bra
-                        />
-                      )}
-                      <p className="pico opacity-55 leading-relaxed pt-1">
-                        {diagnos.meddelande}
-                      </p>
-                    </dl>
-                  )}
-
-                  <button
-                    type="button"
-                    className="knapp micro"
-                    onClick={() => void synkaOmAllt()}
-                  >
-                    Hämta om allt från molnet
-                  </button>
-                  <p className="pico opacity-45 leading-relaxed">
-                    Glömmer var synkningen stod och hämtar hela kalendern på
-                    nytt. Inget lokalt innehåll går förlorat — det
-                    sammanfogas som vanligt.
-                  </p>
-                </div>
-              </details>
+              <button
+                type="button"
+                className="knapp micro"
+                onClick={() => void synkaOmAllt()}
+              >
+                Hämta om allt från molnet
+              </button>
 
               <button
                 type="button"
@@ -320,6 +393,95 @@ export default function KontoPanel({ onStang }: { onStang(): void }) {
               </p>
             </div>
           )}
+
+          {/* Felsökningen ligger utanför de andra blocken med flit. Den
+              behövs som mest när man INTE är inloggad eller när nycklarna
+              saknas — precis de lägen där den tidigare var otillgänglig. */}
+          <details className="border border-ink" open={!session}>
+            <summary className="micro px-2.5 py-2 cursor-pointer select-none">
+              Felsökning
+            </summary>
+            <div className="px-2.5 pb-2.5 flex flex-col gap-2">
+              <button
+                type="button"
+                className="knapp micro"
+                onClick={async () => {
+                  setDiagnos(null);
+                  setStaller(true);
+                  setDiagnos(await stallDiagnos());
+                  setStaller(false);
+                }}
+                disabled={staller}
+              >
+                {staller ? "Kontrollerar…" : "Kontrollera molnet"}
+              </button>
+
+              {diagnos && (
+                <dl className="flex flex-col gap-1">
+                  <Rad
+                    namn="Nycklar i bygget"
+                    varde={diagnos.nycklar ? "Ja" : "Nej"}
+                    bra={diagnos.nycklar}
+                  />
+                  {diagnos.vardnamn && (
+                    <Rad namn="Projekt" varde={diagnos.vardnamn} bra />
+                  )}
+                  <Rad
+                    namn="Inloggad"
+                    varde={diagnos.epost ?? (diagnos.inloggad ? "Ja" : "Nej")}
+                    bra={diagnos.inloggad}
+                  />
+                  <Rad
+                    namn="Tabeller"
+                    varde={
+                      diagnos.tabeller === "ok"
+                        ? "Svarar"
+                        : diagnos.tabeller === "saknas"
+                        ? "Saknas"
+                        : diagnos.tabeller === "fel"
+                        ? "Fel"
+                        : "Ej provat"
+                    }
+                    bra={diagnos.tabeller === "ok"}
+                  />
+                  <Rad
+                    namn="Skrivning"
+                    varde={
+                      diagnos.skrivning === "ok"
+                        ? "Går igenom"
+                        : diagnos.skrivning === "nekad"
+                        ? "Nekas"
+                        : diagnos.skrivning === "fel"
+                        ? "Fel"
+                        : "Ej provat"
+                    }
+                    bra={diagnos.skrivning === "ok"}
+                  />
+                  {diagnos.antalIMolnet !== null && (
+                    <Rad
+                      namn="Poster i molnet"
+                      varde={String(diagnos.antalIMolnet)}
+                      bra
+                    />
+                  )}
+                  <p className="pico opacity-55 leading-relaxed pt-1">
+                    {diagnos.meddelande}
+                  </p>
+                  {diagnos.ratext && (
+                    <p className="pico opacity-40 leading-relaxed break-all">
+                      Svar från databasen: {diagnos.ratext}
+                    </p>
+                  )}
+                </dl>
+              )}
+
+              <p className="pico opacity-45 leading-relaxed">
+                Provet läser OCH skriver på riktigt. Läsning kan fungera där
+                skrivning nekas — det är två olika regler i
+                radnivåsäkerheten, och bara ett skrivprov avslöjar det.
+              </p>
+            </div>
+          </details>
         </div>
       </aside>
     </>
