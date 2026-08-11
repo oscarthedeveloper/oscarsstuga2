@@ -53,9 +53,13 @@ import type { Session } from "@supabase/supabase-js";
 import { MOLNET_FINNS, hamtaKlient } from "@/lib/supabase";
 import {
   antalIvag,
+  diagnostisera,
+  nollstallMarkor,
+  oversattRadfel,
   sammanfoga,
   sammanfogaKalendrar,
   synka,
+  type Diagnos,
   type SynkLage,
 } from "@/lib/synk";
 
@@ -87,6 +91,8 @@ interface ButikVarde {
   session: Session | null;
   synkLage: SynkLage;
   synkaNu(): Promise<void>;
+  synkaOmAllt(): Promise<void>;
+  stallDiagnos(): Promise<Diagnos>;
   loggaIn(epost: string, losenord: string): Promise<string | null>;
   loggaUt(): Promise<void>;
 }
@@ -472,13 +478,26 @@ export default function ButikProvider({
       // sätts resultatet inte rakt av, utan sammanfogas en gång till mot
       // det som råkar vara aktuellt just nu. En ändring som gjorts under
       // synkrundan har nyare stämpel och överlever därför.
-      setData((nuvarande) => ({
-        handelser: sammanfoga(nuvarande.handelser, resultat.data.handelser),
-        kalendrar: sammanfogaKalendrar(
+      setData((nuvarande) => {
+        const handelser = sammanfoga(
+          nuvarande.handelser,
+          resultat.data.handelser
+        );
+        const kalendrar = sammanfogaKalendrar(
           nuvarande.kalendrar,
           resultat.data.kalendrar
-        ),
-      }));
+        );
+        // Sammanfogningen lämnar tillbaka samma referens när ingenting
+        // skilde sig. Då skall tillståndet inte röras alls: annars ritas
+        // hela kalendern om var trettionde sekund utan anledning.
+        if (
+          handelser === nuvarande.handelser &&
+          kalendrar === nuvarande.kalendrar
+        ) {
+          return nuvarande;
+        }
+        return { handelser, kalendrar };
+      });
       setSynkLage({
         tillstand: "vilande",
         ivag: 0,
@@ -490,7 +509,7 @@ export default function ButikProvider({
       setSynkLage((l) => ({
         ...l,
         tillstand: "fel",
-        meddelande: (e as Error).message,
+        meddelande: oversattRadfel((e as Error).message),
       }));
     } finally {
       synkarNu.current = false;
@@ -530,7 +549,12 @@ export default function ButikProvider({
     };
     window.addEventListener("online", paNat);
     document.addEventListener("visibilitychange", paSynlig);
-    const id = window.setInterval(() => void synkaNu(), 120000);
+
+    // Reservlösning bakom realtidslyssnaren nedan. Trettio sekunder är
+    // valt för att en enhet som missat en realtidsavisering — sovande
+    // flik, tappad websocket — ändå skall komma ikapp innan man hinner
+    // undra varför.
+    const id = window.setInterval(() => void synkaNu(), 30000);
 
     const paOffline = () =>
       setSynkLage((l) => ({ ...l, tillstand: "offline" }));
@@ -544,6 +568,59 @@ export default function ButikProvider({
     };
   }, [session, synkaNu]);
 
+  /**
+   * Realtid: molnet knackar på när en annan enhet skrivit något.
+   *
+   * Utan detta syns en ändring från telefonen först vid nästa
+   * pollningsvarv, och en kalender som ligger uppslagen på två skärmar
+   * känns trasig även när den fungerar. Aviseringen bär ingen data — den
+   * säger bara "något har hänt" — och en vanlig synkrunda gör resten.
+   * Slås realtid inte på i Supabase skadar det ingenting; pollningen
+   * fortsätter som förut.
+   */
+  useEffect(() => {
+    const klient = hamtaKlient();
+    const anvandare = session?.user?.id;
+    if (!klient || !anvandare) return;
+
+    let timer: number | null = null;
+    const knuff = () => {
+      // Ett drag på den andra enheten ger en avisering per skrivning.
+      // Kort fördröjning samlar ihop dem till en enda körning.
+      if (timer) window.clearTimeout(timer);
+      timer = window.setTimeout(() => void synkaNu(), 400);
+    };
+
+    const kanal = klient
+      .channel(`kalendariet-${anvandare}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "handelser",
+          filter: `agare=eq.${anvandare}`,
+        },
+        knuff
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "kalendrar",
+          filter: `agare=eq.${anvandare}`,
+        },
+        knuff
+      )
+      .subscribe();
+
+    return () => {
+      if (timer) window.clearTimeout(timer);
+      klient.removeChannel(kanal);
+    };
+  }, [session, synkaNu]);
+
   const loggaIn = useCallback(async (epost: string, losenord: string) => {
     const klient = hamtaKlient();
     if (!klient) return "Molnet är inte konfigurerat i det här bygget.";
@@ -553,6 +630,23 @@ export default function ButikProvider({
     });
     return error ? error.message : null;
   }, []);
+
+  /**
+   * Hämtar hem allt på nytt genom att glömma markören. Utvägen när en
+   * enhet av någon anledning hamnat ur fas med molnet — inget lokalt
+   * innehåll rörs, det sammanfogas som vanligt.
+   */
+  const synkaOmAllt = useCallback(async () => {
+    const anvandare = session?.user?.id;
+    if (!anvandare) return;
+    nollstallMarkor(anvandare);
+    await synkaNu();
+  }, [session, synkaNu]);
+
+  const stallDiagnos = useCallback(
+    () => diagnostisera(session?.user?.id ?? null),
+    [session]
+  );
 
   const loggaUt = useCallback(async () => {
     const klient = hamtaKlient();
@@ -608,6 +702,8 @@ export default function ButikProvider({
       session,
       synkLage,
       synkaNu,
+      synkaOmAllt,
+      stallDiagnos,
       loggaIn,
       loggaUt,
     }),
@@ -638,6 +734,8 @@ export default function ButikProvider({
       session,
       synkLage,
       synkaNu,
+      synkaOmAllt,
+      stallDiagnos,
       loggaIn,
       loggaUt,
     ]

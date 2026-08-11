@@ -14,7 +14,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useButik } from "./Butik";
-import type { SynkLage } from "@/lib/synk";
+import type { Diagnos, SynkLage } from "@/lib/synk";
 import { klocka } from "@/lib/tid";
 
 export function synkText(l: SynkLage): string {
@@ -78,12 +78,16 @@ export default function KontoPanel({ onStang }: { onStang(): void }) {
     loggaUt,
     molnetFinns,
     handelser,
+    synkaOmAllt,
+    stallDiagnos,
   } = useButik();
 
   const [epost, setEpost] = useState("");
   const [losenord, setLosenord] = useState("");
   const [fel, setFel] = useState<string | null>(null);
   const [arbetar, setArbetar] = useState(false);
+  const [diagnos, setDiagnos] = useState<Diagnos | null>(null);
+  const [staller, setStaller] = useState(false);
   const epostRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -228,6 +232,81 @@ export default function KontoPanel({ onStang }: { onStang(): void }) {
               >
                 Synka nu
               </button>
+
+              {/* Felsökning — normalt tillstånd behöver den inte, men när
+                  något inte kommer fram är det här man tittar. */}
+              <details className="border border-ink">
+                <summary className="micro px-2.5 py-2 cursor-pointer select-none">
+                  Felsökning
+                </summary>
+                <div className="px-2.5 pb-2.5 flex flex-col gap-2">
+                  <button
+                    type="button"
+                    className="knapp micro"
+                    onClick={async () => {
+                      setDiagnos(null);
+                      setStaller(true);
+                      setDiagnos(await stallDiagnos());
+                      setStaller(false);
+                    }}
+                    disabled={staller}
+                  >
+                    {staller ? "Kontrollerar…" : "Kontrollera molnet"}
+                  </button>
+
+                  {diagnos && (
+                    <dl className="flex flex-col gap-1">
+                      <Rad
+                        namn="Nycklar i bygget"
+                        varde={diagnos.nycklar ? "Ja" : "Nej"}
+                        bra={diagnos.nycklar}
+                      />
+                      <Rad
+                        namn="Inloggad"
+                        varde={diagnos.inloggad ? "Ja" : "Nej"}
+                        bra={diagnos.inloggad}
+                      />
+                      <Rad
+                        namn="Tabeller"
+                        varde={
+                          diagnos.tabeller === "ok"
+                            ? "Svarar"
+                            : diagnos.tabeller === "saknas"
+                            ? "Saknas"
+                            : diagnos.tabeller === "fel"
+                            ? "Fel"
+                            : "Okänt"
+                        }
+                        bra={diagnos.tabeller === "ok"}
+                      />
+                      {diagnos.antalIMolnet !== null && (
+                        <Rad
+                          namn="Poster i molnet"
+                          varde={String(diagnos.antalIMolnet)}
+                          bra
+                        />
+                      )}
+                      <p className="pico opacity-55 leading-relaxed pt-1">
+                        {diagnos.meddelande}
+                      </p>
+                    </dl>
+                  )}
+
+                  <button
+                    type="button"
+                    className="knapp micro"
+                    onClick={() => void synkaOmAllt()}
+                  >
+                    Hämta om allt från molnet
+                  </button>
+                  <p className="pico opacity-45 leading-relaxed">
+                    Glömmer var synkningen stod och hämtar hela kalendern på
+                    nytt. Inget lokalt innehåll går förlorat — det
+                    sammanfogas som vanligt.
+                  </p>
+                </div>
+              </details>
+
               <button
                 type="button"
                 className="knapp micro"
@@ -244,6 +323,34 @@ export default function KontoPanel({ onStang }: { onStang(): void }) {
         </div>
       </aside>
     </>
+  );
+}
+
+function Rad({
+  namn,
+  varde,
+  bra,
+}: {
+  namn: string;
+  varde: string;
+  bra: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <dt className="pico opacity-55">{namn}</dt>
+      <dd className="pico flex items-center gap-1.5">
+        <span
+          aria-hidden="true"
+          className="inline-block border border-current"
+          style={{
+            width: 7,
+            height: 7,
+            background: bra ? "var(--kal-5-stark)" : "var(--accent)",
+          }}
+        />
+        {varde}
+      </dd>
+    </div>
   );
 }
 

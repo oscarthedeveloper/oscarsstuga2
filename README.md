@@ -11,7 +11,7 @@ hörnparenteser och kolofonremsor. Inga rundade hörn, ingen grotesk.
 ```
 npm install
 npm run dev      # http://localhost:3000
-npm test         # 65 prov: upprepningar, kalendrar, synk och vyer
+npm test         # 71 prov: upprepningar, kalendrar, synk och vyer
 npm run typecheck
 ```
 
@@ -119,7 +119,12 @@ nätverksrunda.
 
 Statusknappen i navigeringsraden säger alltid sanningen med ett ord:
 *Synkad*, *Offline*, `↑ 3`, eller *Logga in*. Ändringar gjorda offline
-ligger kvar och skickas upp när nätet kommer tillbaka.
+ligger kvar och skickas upp när nätet kommer tillbaka. Bakom knappen finns
+en felsökningsruta som frågar molnet på riktigt när något inte kommer fram.
+
+Molnet knackar på via Supabase Realtime när en annan enhet skrivit, så en
+kalender som ligger uppslagen på två skärmar håller sig i takt. Pollning
+var trettionde sekund finns kvar som reserv.
 
 Vid krock vinner senaste ändringen hela posten. Borttagningar sker med
 gravstenar, så att en post inte återuppstår när en enhet som varit offline
@@ -197,8 +202,8 @@ Demomaterialet som tidigare såddes automatiskt ligger kvar i
   räknade serier sedda genom sena fönster, undantag och flyttade förekomster.
   Körs grönt i Europe/Stockholm, UTC, America/Los_Angeles och Australia/Sydney.
 - **Kalendrarna** — 15 prov över namnbyte, färg och borttagning.
-- **Synken** — 17 prov över sammanfogningen vid krock, gravstenar och
-  offlinekön. Skrivna som berättelser om två enheter, eftersom det är så
+- **Synken** — 23 prov över sammanfogningen vid krock, gravstenar,
+  offlinekön och synkmarkören. Skrivna som berättelser om två enheter, eftersom det är så
   felen uppstår: telefonen i tunnelbanan och datorn på kontoret ändrar
   samma möte och möts först en timme senare.
 - **Vyerna** — 11 prov som renderar varje vy och varje panel till HTML och

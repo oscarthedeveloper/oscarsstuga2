@@ -167,3 +167,37 @@ $$;
 -- Appen har ingen registreringsruta, men API:et är öppet tills du
 -- stänger det här.
 -- ===================================================================
+
+-- ===================================================================
+-- REALTID
+--
+-- Utan detta ser en enhet en annans ändring först vid nästa
+-- pollningsvarv. Med det knackar molnet på direkt, och kalendern som
+-- ligger uppslagen på två skärmar håller sig i takt.
+--
+-- Aviseringen bär ingen data — appen gör en vanlig synkrunda när den
+-- kommer — så RLS gäller precis som vanligt för allt som faktiskt läses.
+-- Slås detta inte på fungerar appen ändå; den blir bara långsammare på
+-- att upptäcka ändringar.
+-- ===================================================================
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'handelser'
+  ) then
+    alter publication supabase_realtime add table public.handelser;
+  end if;
+
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'kalendrar'
+  ) then
+    alter publication supabase_realtime add table public.kalendrar;
+  end if;
+end
+$$;

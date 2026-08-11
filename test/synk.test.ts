@@ -10,7 +10,16 @@
  * kontoret ändrar samma möte, och först en timme senare möts de.
  */
 
-import { sammanfoga, sammanfogaKalendrar, osynkade, antalIvag } from "../lib/synk";
+import {
+  antalIvag,
+  backaMarkor,
+  lasMarkor,
+  nollstallMarkor,
+  osynkade,
+  sammanfoga,
+  sammanfogaKalendrar,
+  synka,
+} from "../lib/synk";
 import {
   gravsatt,
   levande,
@@ -37,6 +46,16 @@ function prov(namn: string, f: () => void) {
   }
 }
 
+/**
+ * Asynkrona prov samlas och körs sist, i tur och ordning. Skickas de
+ * genom `prov` sväljs deras fel tyst: en avvisad Promise som ingen
+ * inväntar räknas aldrig som ett misslyckat prov.
+ */
+const asynkrona: [string, () => Promise<void>][] = [];
+function provAsync(namn: string, f: () => Promise<void>) {
+  asynkrona.push([namn, f]);
+}
+
 function lika<T>(fick: T, vantat: T, vad = "") {
   if (JSON.stringify(fick) !== JSON.stringify(vantat)) {
     throw new Error(
@@ -46,6 +65,53 @@ function lika<T>(fick: T, vantat: T, vad = "") {
 }
 
 const T = (t: string) => `2026-08-1${t}`;
+
+/*
+ * localStorage finns inte i Node. Markören bor där, så proven ger den ett
+ * minne av samma form. Nätverkslagret ersätts likaså med en attrapp:
+ * det som mäts är markörens och sammanfogningens logik, inte HTTP.
+ */
+const minne = new Map<string, string>();
+(globalThis as { localStorage?: unknown }).localStorage = {
+  getItem: (k: string) => minne.get(k) ?? null,
+  setItem: (k: string, v: string) => void minne.set(k, v),
+  removeItem: (k: string) => void minne.delete(k),
+};
+(globalThis as { window?: unknown }).window = globalThis;
+
+interface Attrapp {
+  hamta(fran: string): Record<string, unknown>[];
+  skrivStampel: string;
+}
+
+/** Minsta möjliga Supabase-klient: bara det synka() faktiskt rör. */
+function falskKlient(a: Attrapp) {
+  return {
+    from() {
+      const byggare: Record<string, unknown> = {};
+      let franVarde = "";
+      Object.assign(byggare, {
+        select: () => byggare,
+        gt: (_kolumn: string, varde: string) => {
+          franVarde = varde;
+          return byggare;
+        },
+        order: () => Promise.resolve({ data: a.hamta(franVarde), error: null }),
+        upsert: (rader: Record<string, unknown>[]) => ({
+          select: () =>
+            Promise.resolve({
+              data: rader.map((r) => ({
+                id: r.id,
+                synk_vid: a.skrivStampel,
+              })),
+              error: null,
+            }),
+        }),
+      });
+      return byggare;
+    },
+  };
+}
 
 function h(
   id: string,
@@ -246,6 +312,112 @@ prov("en offlinekö överlever flera varv utan nät", () => {
   lika(osynkade(efter).map((x) => x.id), ["a", "b", "c"]);
 });
 
+/* --- markören ----------------------------------------------------- */
+
+prov("markören backas med marginal innan den används", () => {
+  // now() i Postgres är transaktionens starttid. En transaktion som
+  // börjar tidigt men blir klar sent får en synk_vid som ligger FÖRE
+  // rader vi redan sett. Utan marginal skulle markören kunna passera en
+  // rad som ännu inte var synlig, och den vore borta för alltid.
+  const m = "2026-08-12T10:00:00.000Z";
+  lika(backaMarkor(m, 60000), "2026-08-12T09:59:00.000Z");
+});
+
+prov("nolltiden backas inte förbi epoken", () => {
+  lika(backaMarkor("1970-01-01T00:00:00.000Z"), "1970-01-01T00:00:00.000Z");
+  lika(backaMarkor("trasig"), "1970-01-01T00:00:00.000Z");
+});
+
+provAsync("en synkrunda flyttar markören ENDAST med hämtade rader", async () => {
+  /*
+   * Det här är felet som gjorde att en händelse tillagd på en enhet
+   * aldrig nådde den andra:
+   *
+   *   1. Enhet A hämtar. Molnet är tomt.
+   *   2. Enhet B skriver sin händelse. Servern stämplar den 10:00:03.
+   *   3. Enhet A skickar upp sin egen händelse. Servern stämplar 10:00:05.
+   *
+   * Räknades den egna skrivningen in i markören skulle A stå på 10:00:05
+   * och aldrig mer fråga efter något äldre — B:s händelse från 10:00:03
+   * vore osynlig för A i all evighet.
+   */
+  const anvandare = "prov-anvandare";
+  nollstallMarkor(anvandare);
+  const hamtade: string[] = [];
+
+  const klient = falskKlient({
+    hamta: (fran) => {
+      hamtade.push(fran);
+      return [];
+    },
+    skrivStampel: "2026-08-12T10:00:05.000Z",
+  });
+
+  const lokal: Ogonblick = {
+    handelser: [h("a", "A:s händelse", T("2T10:00:04Z"))],
+    kalendrar: [],
+  };
+
+  await synka(lokal, anvandare, klient as never);
+  const markorEfter = lasMarkor(anvandare);
+  lika(markorEfter, "1970-01-01T00:00:00.000Z", "markören fick inte flyttas");
+});
+
+provAsync("markören flyttas fram av hämtade rader", async () => {
+  const anvandare = "prov-anvandare-2";
+  nollstallMarkor(anvandare);
+  const klient = falskKlient({
+    hamta: () => [
+      {
+        id: "fjarr",
+        titel: "Från molnet",
+        starttid: "2026-08-12T09:00",
+        sluttid: "2026-08-12T10:00",
+        kalender_id: "arbete",
+        andrad: "2026-08-12T10:00:03.000Z",
+        raderad: null,
+        skapad: "2026-08-12T10:00:03.000Z",
+        anteckning: "",
+        plats: "",
+        heldag: false,
+        upprepning: null,
+        undantag: [],
+        avvikelser: {},
+        agare: anvandare,
+        synk_vid: "2026-08-12T10:00:03.000Z",
+      },
+    ],
+    skrivStampel: "2026-08-12T10:00:05.000Z",
+  });
+
+  const resultat = await synka(
+    { handelser: [], kalendrar: [] },
+    anvandare,
+    klient as never
+  );
+  lika(lasMarkor(anvandare), "2026-08-12T10:00:03.000Z");
+  lika(levande(resultat.data.handelser).map((x) => x.titel), ["Från molnet"]);
+});
+
+prov("oförändrad hämtning ger tillbaka samma lista", () => {
+  // Egna rader hämtas hem igen nästa runda eftersom markören inte flyttas
+  // av skrivningar. Det får inte betyda att hela kalendern ritas om varje
+  // gång: ger sammanfogningen nya objekt skrivs localStorage om i onödan
+  // och varje vy renderas på nytt.
+  const lokal = [{ ...h("a", "Möte", T("0T10:00:00Z")), synkad: true }];
+  const fran_molnet = [{ ...h("a", "Möte", T("0T10:00:00Z")), synkad: true }];
+  const ut = sammanfoga(lokal, fran_molnet);
+  lika(ut === lokal, true, "referensen skall bevaras");
+});
+
+prov("en verklig ändring ger däremot en ny lista", () => {
+  const lokal = [{ ...h("a", "Möte", T("0T10:00:00Z")), synkad: true }];
+  const nyare = [{ ...h("a", "Nytt namn", T("0T12:00:00Z")), synkad: true }];
+  const ut = sammanfoga(lokal, nyare);
+  lika(ut === lokal, false);
+  lika(ut[0].titel, "Nytt namn");
+});
+
 prov("sammanfogningen muterar inte sitt indata", () => {
   const lokala = [h("a", "Möte", T("0T10:00:00Z"))];
   const kopia = JSON.parse(JSON.stringify(lokala));
@@ -253,7 +425,21 @@ prov("sammanfogningen muterar inte sitt indata", () => {
   lika(lokala, kopia);
 });
 
-process.stdout.write(
-  `\n${antal - fel} av ${antal} prov gick igenom.${fel ? " ✗" : " ✓"}\n\n`
-);
-process.exit(fel ? 1 : 0);
+async function kor() {
+  for (const [namn, f] of asynkrona) {
+    antal += 1;
+    try {
+      await f();
+      process.stdout.write(`  ok   ${namn}\n`);
+    } catch (e) {
+      fel += 1;
+      process.stdout.write(`  FEL  ${namn}\n       ${(e as Error).message}\n`);
+    }
+  }
+  process.stdout.write(
+    `\n${antal - fel} av ${antal} prov gick igenom.${fel ? " ✗" : " ✓"}\n\n`
+  );
+  process.exit(fel ? 1 : 0);
+}
+
+void kor();

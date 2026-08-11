@@ -21,6 +21,13 @@ tar emot registreringar tills du stänger det här. Radnivåsäkerheten gör att
 en främmande användare ändå inte skulle se dina rader — men det finns ingen
 anledning att låta någon skapa konton i ditt projekt.
 
+**Realtid.** Sista blocket i `schema.sql` lägger tabellerna i
+`supabase_realtime`-publikationen. Det är det som gör att en ändring på
+telefonen syns på datorn direkt i stället för vid nästa pollningsvarv.
+Kontrollera under **Database → Replication** att `handelser` och
+`kalendrar` är med. Missas det fungerar synken ändå — den blir bara upp
+till trettio sekunder långsammare.
+
 **Nycklarna.** **Project Settings → API**. Kopiera *Project URL* och
 *anon public*. Lokalt lägger du dem i `.env.local`:
 
@@ -85,12 +92,11 @@ En ändring du gör offline:
 
 1. sparas i `localStorage` direkt och märks som osynkad
 2. syns i statusknappen som `↑ 3`
-3. skickas upp automatiskt när nätet kommer tillbaka — appen lyssnar på
-   `online`, på att fliken blir synlig igen, och kollar dessutom varannan
-   minut
+3. skickas upp automatiskt när nätet kommer tillbaka
 
-Synken körs också vid inloggning och 1,5 sekunder efter varje ändring, så
-att ett drag blir en skrivning i stället för tjugo.
+Synken utlöses av: inloggning, `online`, att fliken blir synlig igen, en
+realtidsavisering från molnet när en annan enhet skrivit, 1,5 sekunder
+efter varje egen ändring, och som sista utväg var trettionde sekund.
 
 ### Om samma händelse ändrats på två enheter
 
@@ -136,5 +142,14 @@ det den har och hämtar det nya i bakgrunden; nästa gång du öppnar appen
 dyker knappen *Ny version finns* upp. Vill du tvinga fram det:
 avinstallera från hemskärmen, eller rensa webbplatsdata.
 
-**Ändringar syns inte på den andra enheten.** Öppna statusknappen. Står det
-`↑ 3` ligger de i kön; står det *Synkfel* visas orsaken där.
+**Ändringar syns inte på den andra enheten.** Öppna statusknappen →
+**Felsökning** → *Kontrollera molnet*. Den kör en riktig förfrågan mot
+databasen och svarar på tre frågor: har bygget nycklar, är enheten
+inloggad, och svarar tabellerna. Antalet poster i molnet visas också — står
+det noll har ingenting kommit upp, står det rätt siffra är det hämtningen
+som är problemet.
+
+Knappen **Hämta om allt från molnet** glömmer var synkningen stod och
+hämtar hela kalendern på nytt. Inget lokalt innehåll går förlorat; det
+sammanfogas som vanligt. Det är rätt åtgärd om en enhet av någon anledning
+hamnat ur fas.
