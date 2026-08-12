@@ -73,22 +73,45 @@ self.addEventListener("fetch", (e) => {
   // i synnerhet Supabase: ett cachat databassvar vore aktivt skadligt.
   if (url.origin !== self.location.origin) return;
 
-  // Sidnavigering: cache först, med tyst uppdatering.
+  /*
+   * Sidnavigering: NÄTET FÖRST, med kort tålamod och cachen som fallskärm.
+   *
+   * Det frestande valet är cache först — appen öppnas ögonblickligen och
+   * det nya hämtas i bakgrunden. Men då visar varje besök föregående
+   * versions HTML, som i sin tur pekar ut föregående versions buntar, och
+   * de ligger redan cachade som oföränderliga. Följden är att en ny deploy
+   * inte syns förrän andra gången appen öppnas, utan att något säger till.
+   * Det är en usel egenskap hos en app som deployas ofta.
+   *
+   * Två och en halv sekund är avvägningen: så länge väntar vi på nätet
+   * innan vi ger upp och tar det vi har. På ett fungerande nät märks det
+   * inte; utan nät är fallskärmen omedelbar, eftersom fetch då avslutas
+   * direkt i stället för att räkna ned.
+   */
   if (req.mode === "navigate") {
     e.respondWith(
       (async () => {
         const cache = await caches.open(SKAL);
-        const traff =
+        const franCache = async () =>
           (await cache.match(req)) ??
           (await cache.match("/index.html")) ??
           (await cache.match("/"));
-        const natet = fetch(req)
-          .then((svar) => {
-            if (svar.ok) cache.put("/index.html", svar.clone());
+
+        try {
+          const svar = await Promise.race([
+            fetch(req),
+            new Promise((_, avvisa) =>
+              setTimeout(() => avvisa(new Error("tidsgräns")), 2500)
+            ),
+          ]);
+          if (svar && svar.ok) {
+            cache.put("/index.html", svar.clone());
             return svar;
-          })
-          .catch(() => null);
-        return traff ?? (await natet) ?? Response.error();
+          }
+          return (await franCache()) ?? svar;
+        } catch {
+          return (await franCache()) ?? Response.error();
+        }
       })()
     );
     return;

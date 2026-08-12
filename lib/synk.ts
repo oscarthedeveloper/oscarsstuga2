@@ -24,6 +24,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Handelse, Kalender, Synkbar, Upprepning } from "./typer";
 import {
+  BYGGE,
   SUPABASE_VARD,
   TABELL_HANDELSER,
   TABELL_KALENDRAR,
@@ -469,6 +470,8 @@ export function oversattRadfel(meddelande: string): string {
    ================================================================== */
 
 export interface Diagnos {
+  /** När bygget gjordes, och från vilken commit. */
+  bygge: string;
   nycklar: boolean;
   /** Adressen till projektet, så man ser att rätt projekt är inkopplat. */
   vardnamn: string | null;
@@ -496,6 +499,7 @@ export async function diagnostisera(
   klient: SupabaseClient | null = hamtaKlient()
 ): Promise<Diagnos> {
   const bas: Diagnos = {
+    bygge: `${BYGGE.tid.slice(0, 16).replace("T", " ")} · ${BYGGE.commit}`,
     nycklar: !!klient,
     vardnamn: SUPABASE_VARD,
     inloggad: !!anvandarId,

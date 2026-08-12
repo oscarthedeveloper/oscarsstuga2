@@ -35,6 +35,7 @@ export default function Offline() {
     if (process.env.NODE_ENV !== "production") return;
 
     let avbruten = false;
+    let stadning: (() => void) | null = null;
 
     navigator.serviceWorker
       .register("/sw.js", { scope: "/" })
@@ -58,6 +59,16 @@ export default function Offline() {
         };
         kolla();
         reg.addEventListener("updatefound", kolla);
+
+        // Fråga aktivt efter en ny arbetare när fliken blir synlig igen.
+        // Utan detta upptäcks en ny version först vid nästa hela omstart,
+        // vilket för en installerad app kan dröja mycket länge.
+        const paSynlig = () => {
+          if (document.visibilityState === "visible") void reg.update();
+        };
+        document.addEventListener("visibilitychange", paSynlig);
+        stadning = () =>
+          document.removeEventListener("visibilitychange", paSynlig);
       })
       .catch(() => {
         // Ingen service worker betyder ingen offlinestart, men appen
@@ -66,6 +77,7 @@ export default function Offline() {
 
     return () => {
       avbruten = true;
+      stadning?.();
     };
   }, []);
 

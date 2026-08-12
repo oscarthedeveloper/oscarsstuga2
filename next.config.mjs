@@ -23,6 +23,22 @@ const nextConfig = {
   },
 
   reactStrictMode: true,
+
+  /*
+   * Byggstämpel.
+   *
+   * "Är jag ens på den nya deployen?" är den första frågan när något inte
+   * ser ut som väntat, och den går annars inte att svara på från
+   * webbläsaren. COMMIT_REF sätts av Netlify; lokalt blir det "lokalt".
+   */
+  env: {
+    NEXT_PUBLIC_BYGGTID: new Date().toISOString(),
+    NEXT_PUBLIC_BYGGCOMMIT: (
+      process.env.COMMIT_REF ??
+      process.env.VERCEL_GIT_COMMIT_SHA ??
+      "lokalt"
+    ).slice(0, 7),
+  },
 };
 
 export default nextConfig;

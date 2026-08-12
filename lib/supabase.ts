@@ -34,6 +34,12 @@ export const SUPABASE_VARD = (() => {
   }
 })();
 
+/** När och från vilken commit det här bygget kom. Se next.config.mjs. */
+export const BYGGE = {
+  tid: process.env.NEXT_PUBLIC_BYGGTID ?? "okänt",
+  commit: process.env.NEXT_PUBLIC_BYGGCOMMIT ?? "okänt",
+};
+
 let klient: SupabaseClient | null = null;
 
 export function hamtaKlient(): SupabaseClient | null {

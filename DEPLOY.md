@@ -149,7 +149,42 @@ båda ser ut precis som en fungerande kalender:
    bygget, inte vid besöket. Lägger du in dem i Netlify måste du köra
    **Trigger deploy → Clear cache and deploy site** efteråt; en vanlig
    omladdning i webbläsaren räcker inte. Lokalt måste `next dev` startas
-   om efter en ändring i `.env.local`.
+   om efter en ändring i `.env.local` — och värdena måste stå i
+   **`.env.local`**, inte i `.env.local.example`, som bara är en mall.
+
+Säger diagnosen *Nycklar i bygget: Nej* trots att variablerna står i
+Netlify, är det nästan alltid en av tre saker:
+
+- **Deployen misslyckades och du ser en äldre lyckad deploy.** Netlify
+  genomsöker bygget efter värden som liknar hemligheter och avbryter om den
+  hittar några — och `NEXT_PUBLIC_*` hamnar med flit i klientkoden. Se
+  *Secrets scanning* nedan. Kolla **Deploys** och leta efter röda rader.
+- **Fel scope.** Varje variabel har ett scope i Netlify. Omfattar det inte
+  **Builds** ser `next build` den inte, hur rätt den än ser ut i listan.
+- **Fel deploy-kontext.** Sätts värdet bara för *Deploy previews* gäller
+  det inte för **Production**.
+
+Byggstämpeln i diagnosen — datum och commit — visar vilket bygge du
+faktiskt tittar på. Stämmer den inte med din senaste push har deployen
+inte gått igenom.
+
+### Secrets scanning
+
+`netlify.toml` innehåller numera:
+
+```
+SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY"
+```
+
+Utan den raden misslyckas varje deploy från och med den stund variablerna
+lagts in, med ett meddelande om att hemligheter hittats i bygget. Netlify
+fortsätter då servera den senaste lyckade deployen — den från innan
+nycklarna fanns — och resultatet ser ut precis som om variablerna aldrig
+sattes: ny kod, inga nycklar.
+
+Undantaget är säkert här, men bara för att `NEXT_PUBLIC_`-prefixet
+betyder just "detta är avsett att vara publikt". Lägg **aldrig**
+service role-nyckeln i en `NEXT_PUBLIC_`-variabel.
 
 **Skrivning nekas men läsning fungerar.** `using` och `with check` i
 radnivåsäkerheten styr två olika saker. Saknas `with check` avvisas varje

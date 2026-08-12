@@ -17,6 +17,22 @@
 [build.environment]
   NODE_VERSION = "20"
 
+  # ------------------------------------------------------------------
+  # HEMLIGHETSSÖKNINGEN
+  #
+  # Netlify genomsöker det färdiga bygget efter värden som matchar dina
+  # miljövariabler, och AVBRYTER deployen om den hittar några. Avsikten är
+  # god — den fångar en läckt service-nyckel — men den kan inte veta att
+  # NEXT_PUBLIC_* är avsedda att hamna i klientkoden. Det är hela poängen
+  # med prefixet.
+  #
+  # Utan det här undantaget misslyckas alltså varje deploy från och med
+  # den stund variablerna lagts in, och Netlify fortsätter servera den
+  # SENASTE LYCKADE deployen — den från innan nycklarna fanns. Resultatet
+  # ser ut precis som om variablerna aldrig sattes: ny kod, inga nycklar.
+  # ------------------------------------------------------------------
+  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY"
+
 # -------------------------------------------------------------------
 # HUVUDEN
 # -------------------------------------------------------------------

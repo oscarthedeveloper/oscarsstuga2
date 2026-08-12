@@ -295,13 +295,25 @@ export default function KontoPanel({ onStang }: { onStang(): void }) {
 
           {!molnetFinns && (
             <p className="pico opacity-55 leading-relaxed">
-              Det här bygget har inga molnnycklar —{" "}
+              Bygget saknar molnnycklar —{" "}
               <b>NEXT_PUBLIC_SUPABASE_URL</b> och{" "}
               <b>NEXT_PUBLIC_SUPABASE_ANON_KEY</b> saknas. Kalendern fungerar
               precis som vanligt, men bara på den här enheten. Lokalt sätts de i{" "}
               <b>.env.local</b>, på Netlify under Environment variables — och
               bygget måste köras om efteråt, eftersom värdena bakas in vid
               bygget.
+            </p>
+          )}
+
+          {!molnetFinns && (
+            <p className="pico opacity-55 leading-relaxed">
+              Går deployen ändå inte igenom: Netlify genomsöker bygget efter
+              värden som liknar hemligheter och avbryter deployen om den
+              hittar några — och <b>NEXT_PUBLIC_*</b> hamnar med flit i
+              klientkoden. Undantaget står numera i <b>netlify.toml</b>{" "}
+              (SECRETS_SCAN_OMIT_KEYS). Kontrollera också att variablernas{" "}
+              <b>scope</b> omfattar <b>Builds</b> och att de gäller för{" "}
+              <b>Production</b>.
             </p>
           )}
 
@@ -418,6 +430,7 @@ export default function KontoPanel({ onStang }: { onStang(): void }) {
 
               {diagnos && (
                 <dl className="flex flex-col gap-1">
+                  <Rad namn="Bygge" varde={diagnos.bygge} bra />
                   <Rad
                     namn="Nycklar i bygget"
                     varde={diagnos.nycklar ? "Ja" : "Nej"}
