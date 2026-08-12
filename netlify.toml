@@ -15,7 +15,35 @@
   publish = "out"
 
 [build.environment]
-  NODE_VERSION = "20"
+  # Supabase-klienten kräver Node 22. På 20 bygger den, men varnar vid
+  # varje paket och slutar fungera i en kommande version.
+  NODE_VERSION = "22"
+
+  # ------------------------------------------------------------------
+  # MOLNNYCKLARNA
+  #
+  # De står här, i repot, och inte i Netlifys gränssnitt. Det är ett
+  # medvetet val efter att bygget gång på gång visat att variablerna från
+  # gränssnittet aldrig nådde fram — loggen listade noll NEXT_PUBLIC_-
+  # variabler. Här kan de inte hamna fel: filen är samma sak som bygget
+  # läser, och den syns i git-historiken.
+  #
+  # Är det säkert? Ja, och inte tack vare hemlighetsmakeri. Anon-nyckeln
+  # skickas till varje besökare i JavaScript-bunten ändå — den ÄR publik,
+  # det är vad `anon` betyder. Att den också ligger i repot ändrar
+  # ingenting. Det som skyddar innehållet är radnivåsäkerheten i
+  # databasen, där varje rad är knuten till auth.uid().
+  #
+  # Service role-nyckeln är motsatsen: den går förbi RLS helt och får
+  # ALDRIG stå här, i .env-filer, eller någon annanstans i klientkoden.
+  #
+  # Vill du hellre ha dem i Netlifys gränssnitt: ta bort de två raderna
+  # nedan, lägg in dem under Site configuration → Environment variables
+  # med scope som omfattar Builds, och kontrollera i deploy-loggen att
+  # rutan säger "MOLNET: inkopplat".
+  # ------------------------------------------------------------------
+  NEXT_PUBLIC_SUPABASE_URL = "https://nftxdboilciytjppelnd.supabase.co"
+  NEXT_PUBLIC_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5mdHhkYm9pbGNpeXRqcHBlbG5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY0NzQ0NjMsImV4cCI6MjEwMjA1MDQ2M30.S-_FHX18AeNCKofztjCsUS7zK9J99e_f6Fb6iA9z57U"
 
   # ------------------------------------------------------------------
   # HEMLIGHETSSÖKNINGEN
