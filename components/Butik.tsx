@@ -26,6 +26,7 @@ import type {
   Kalender,
   Rackvidd,
   Upprepning,
+  Uppgift,
 } from "@/lib/typer";
 import {
   LokaltLager,
@@ -37,9 +38,11 @@ import {
   levande,
   normalisera,
   normaliseraKalender,
+  normaliseraUppgift,
   nu,
   nyId,
   rord,
+  vaxlaKlar as vaxlaKlarPa,
   taBortKalender as taBortKalenderUr,
   type Ogonblick,
 } from "@/lib/butik";
@@ -82,6 +85,12 @@ interface ButikVarde {
   /** `flyttaTill` = null raderar kalenderns händelser i stället för att flytta dem. */
   taBortKalender(id: string, flyttaTill: string | null): void;
   antalIKalender(id: string): number;
+  /* --- att göra --- */
+  uppgifter: Uppgift[];
+  skapaUppgift(utkast: Partial<Uppgift>): Uppgift;
+  sparaUppgift(u: Uppgift): void;
+  vaxlaKlar(id: string): void;
+  taBortUppgift(id: string): void;
   angra(): void;
   gorOm(): void;
   tomKalendern(): void;
@@ -119,6 +128,7 @@ export default function ButikProvider({
   const [data, setData] = useState<Ogonblick>({
     handelser: [],
     kalendrar: STANDARDKALENDRAR,
+    uppgifter: [],
   });
   const [laddad, setLaddad] = useState(false);
 
@@ -126,6 +136,7 @@ export default function ButikProvider({
   // ser bara levande poster.
   const handelser = useMemo(() => levande(data.handelser), [data.handelser]);
   const kalendrar = useMemo(() => levande(data.kalendrar), [data.kalendrar]);
+  const uppgifter = useMemo(() => levande(data.uppgifter), [data.uppgifter]);
 
   const historik = useRef<Ogonblick[]>([]);
   const framtid = useRef<Ogonblick[]>([]);
@@ -140,6 +151,7 @@ export default function ButikProvider({
         handelser: sparat.handelser,
         kalendrar:
           sparat.kalendrar.length > 0 ? sparat.kalendrar : STANDARDKALENDRAR,
+        uppgifter: sparat.uppgifter,
       });
     }
     // Utan sparat läge börjar kalendern tom. Ingen exempeldata sås:
@@ -203,6 +215,67 @@ export default function ButikProvider({
       });
     },
     [andra]
+  );
+
+  /**
+   * Samma mekanik som för händelser: identiteten före och efter avgör
+   * vad som stämplas, och det som försvinner ur listan blir en gravsten.
+   * Att skriva om den logiken en gång till hade varit ett sätt att få
+   * den fel på ett av de två ställena.
+   */
+  const andraUppgifter = useCallback(
+    (f: (lista: Uppgift[]) => Uppgift[]) => {
+      andra((o) => {
+        const nya = f(o.uppgifter);
+        const tidpunkt = nu();
+        const fore = new Map(o.uppgifter.map((u) => [u.id, u]));
+        const kvar = nya.map((u) =>
+          fore.get(u.id) === u ? u : rord(u, tidpunkt)
+        );
+        const kvarIder = new Set(nya.map((u) => u.id));
+        const gravar = o.uppgifter
+          .filter((u) => !kvarIder.has(u.id) && !u.raderad)
+          .map((u) => gravsatt(u, tidpunkt));
+        return { ...o, uppgifter: [...kvar, ...gravar] };
+      });
+    },
+    [andra]
+  );
+
+  const skapaUppgift = useCallback(
+    (utkast: Partial<Uppgift>) => {
+      const u = normaliseraUppgift({ ...utkast, id: utkast.id ?? nyId() });
+      andraUppgifter((lista) => [...lista, u]);
+      return u;
+    },
+    [andraUppgifter]
+  );
+
+  const sparaUppgift = useCallback(
+    (u: Uppgift) => {
+      andraUppgifter((lista) =>
+        lista.some((x) => x.id === u.id)
+          ? lista.map((x) => (x.id === u.id ? normaliseraUppgift(u) : x))
+          : [...lista, normaliseraUppgift(u)]
+      );
+    },
+    [andraUppgifter]
+  );
+
+  const vaxlaKlar = useCallback(
+    (id: string) => {
+      andraUppgifter((lista) =>
+        lista.map((u) => (u.id === id ? vaxlaKlarPa(u) : u))
+      );
+    },
+    [andraUppgifter]
+  );
+
+  const taBortUppgift = useCallback(
+    (id: string) => {
+      andraUppgifter((lista) => lista.filter((u) => u.id !== id));
+    },
+    [andraUppgifter]
   );
 
   const angra = useCallback(() => {
@@ -493,16 +566,21 @@ export default function ButikProvider({
           nuvarande.kalendrar,
           resultat.data.kalendrar
         );
+        const uppgifter = sammanfoga(
+          nuvarande.uppgifter,
+          resultat.data.uppgifter
+        );
         // Sammanfogningen lämnar tillbaka samma referens när ingenting
         // skilde sig. Då skall tillståndet inte röras alls: annars ritas
         // hela kalendern om var trettionde sekund utan anledning.
         if (
           handelser === nuvarande.handelser &&
-          kalendrar === nuvarande.kalendrar
+          kalendrar === nuvarande.kalendrar &&
+          uppgifter === nuvarande.uppgifter
         ) {
           return nuvarande;
         }
-        return { handelser, kalendrar };
+        return { handelser, kalendrar, uppgifter };
       });
       setSynkLage({
         tillstand: "vilande",
@@ -707,6 +785,11 @@ export default function ButikProvider({
       uppdateraKalender,
       taBortKalender,
       antalIKalender,
+      uppgifter,
+      skapaUppgift,
+      sparaUppgift,
+      vaxlaKlar,
+      taBortUppgift,
       angra,
       gorOm,
       tomKalendern,
@@ -740,6 +823,11 @@ export default function ButikProvider({
       uppdateraKalender,
       taBortKalender,
       antalIKalender,
+      uppgifter,
+      skapaUppgift,
+      sparaUppgift,
+      vaxlaKlar,
+      taBortUppgift,
       angra,
       gorOm,
       tomKalendern,

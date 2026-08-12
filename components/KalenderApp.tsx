@@ -25,6 +25,7 @@ import HandelsePanel from "./HandelsePanel";
 import KalenderPanel from "./KalenderPanel";
 import Kommandopalett, { type Kommando } from "./Kommandopalett";
 import KontoPanel, { HamtaKnapp, KontoKnapp, MolnRemsa } from "./Konto";
+import AttGora from "./AttGora";
 import { useMobil } from "@/lib/anvandMedia";
 import {
   addDagar,
@@ -59,6 +60,16 @@ export default function KalenderApp() {
   const [hanterarKalendrar, setHanterarKalendrar] = useState(false);
   const [lada, setLada] = useState(false);
   const [konto, setKonto] = useState(false);
+  /*
+   * Kalendern och att göra-listan är två sidor av samma app, inte två
+   * appar. De delar butik, kalendrar, synk och tangentbord — därför är
+   * det ett vylägesbyte och inte en egen adress. Skalet, panelerna och
+   * det pågående tillståndet överlever bytet.
+   */
+  const [sida, setSida] = useState<"kalender" | "attgora">("kalender");
+  /* Bottenradens plusknapp kan inte nå textfältet inne i AttGora. Den
+     räknar upp en signal i stället, och fältet tar fokus när den ändras. */
+  const [fokusera, setFokusera] = useState(0);
   const mobil = useMobil();
 
   /*
@@ -218,6 +229,11 @@ export default function KalenderApp() {
   /* ---------------------------------------------------------------
      Tangentbord
      --------------------------------------------------------------- */
+  const kvarAttGora = useMemo(
+    () => butik.uppgifter.filter((u) => !u.klar).length,
+    [butik.uppgifter]
+  );
+
   const valdForekomst = useMemo(
     () => forekomster.find((f) => f.nyckel === vald) ?? null,
     [forekomster, vald]
@@ -273,6 +289,18 @@ export default function KalenderApp() {
         grupp: "Redigering",
         tangent: "⇧⌘Z",
         utfor: butik.gorOm,
+      },
+      {
+        id: "sida-kalender",
+        namn: "Visa kalendern",
+        grupp: "Sidor",
+        utfor: () => setSida("kalender"),
+      },
+      {
+        id: "sida-attgora",
+        namn: "Visa att göra",
+        grupp: "Sidor",
+        utfor: () => setSida("attgora"),
       },
       {
         id: "hamta-om",
@@ -345,6 +373,8 @@ export default function KalenderApp() {
   kontoRef.current = konto;
   const ladaRef = useRef(lada);
   ladaRef.current = lada;
+  const sidaRef = useRef(sida);
+  sidaRef.current = sida;
 
   useEffect(() => {
     const paTangent = (e: KeyboardEvent) => {
@@ -371,6 +401,18 @@ export default function KalenderApp() {
       }
       if (iFalt || redigerarRef.current || hanterarRef.current) return;
       if (kontoRef.current || ladaRef.current) return;
+
+      // Att göra-sidan har inga vyer att växla mellan och inget datum
+      // att bläddra i. Att låta tangenterna verka i bakgrunden vore ett
+      // sätt att hamna någon helt annanstans utan att förstå varför.
+      if (sidaRef.current !== "kalender") {
+        // N betyder "nytt" på båda sidorna — bara olika sorts nytt.
+        if (e.key === "n" || e.key === "N") {
+          e.preventDefault();
+          setFokusera((n) => n + 1);
+        }
+        return;
+      }
 
       const v = VYER.find((x) => x.tangent === e.key);
       if (v) {
@@ -472,18 +514,6 @@ export default function KalenderApp() {
   return (
     <main className="viewport-lock appram">
       <div className="border border-ink flex flex-col h-[calc(100dvh-2.4vw)] min-h-[420px] overflow-hidden bg-paper">
-        <div className="hidden md:block">
-          <ColophonStrip
-            left={
-              butik.molnetFinns
-                ? "Offline först — ändringar skickas upp när nätet finns"
-                : "Lokalt lager — inget lämnar den här datorn"
-            }
-            centre="Kalendariet"
-            right=">>> Dag · Tre dagar · Vecka · Månad · År"
-          />
-        </div>
-
         {/* Säger rakt ut när ingenting synkas. Två tysta lägen — bygge
             utan nycklar, och enhet utan inloggning — ser annars ut precis
             som en fungerande kalender. */}
@@ -509,50 +539,85 @@ export default function KalenderApp() {
               </span>
             </span>
 
-            <div className="knapp-rad shrink-0">
-              <button
-                type="button"
-                className="knapp micro"
-                onClick={() => stega(-1)}
-                aria-label="Föregående"
-              >
-                ‹
-              </button>
-              <button type="button" className="knapp micro" onClick={gaTillIdag}>
-                Idag
-              </button>
-              <button
-                type="button"
-                className="knapp micro"
-                onClick={() => stega(1)}
-                aria-label="Nästa"
-              >
-                ›
-              </button>
-            </div>
+            {sida === "kalender" && (
+              <div className="knapp-rad shrink-0">
+                <button
+                  type="button"
+                  className="knapp micro"
+                  onClick={() => stega(-1)}
+                  aria-label="Föregående"
+                >
+                  ‹
+                </button>
+                <button
+                  type="button"
+                  className="knapp micro"
+                  onClick={gaTillIdag}
+                >
+                  Idag
+                </button>
+                <button
+                  type="button"
+                  className="knapp micro"
+                  onClick={() => stega(1)}
+                  aria-label="Nästa"
+                >
+                  ›
+                </button>
+              </div>
+            )}
 
             <div className="min-w-0">
               <h1 className="display text-[0.98rem] md:text-[1.1rem] leading-none truncate">
-                {rubrik}
+                {sida === "kalender" ? rubrik : "Att göra"}
               </h1>
-              <p className="pico opacity-60 truncate">{underrubrik}</p>
+              <p className="pico opacity-60 truncate">
+                {sida === "kalender"
+                  ? underrubrik
+                  : `${kvarAttGora} ${kvarAttGora === 1 ? "kvar" : "kvar"}`}
+              </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            {/* Sidväxeln göms på telefonen — bottenraden har den redan,
+                och navigeringsraden rymmer inte båda. */}
             <div className="knapp-rad hidden md:flex">
-              {VYER.map((v) => (
-                <button
-                  key={v.id}
-                  type="button"
-                  className="knapp micro"
-                  data-aktiv={vy === v.id ? "1" : "0"}
-                  onClick={() => setVy(v.id)}
-                  title={`${v.namn} (${v.tangent})`}
-                >
-                  {v.namn}
-                </button>
-              ))}
+              <button
+                type="button"
+                className="knapp micro"
+                data-aktiv={sida === "kalender" ? "1" : "0"}
+                onClick={() => setSida("kalender")}
+              >
+                Kalender
+              </button>
+              <button
+                type="button"
+                className="knapp micro"
+                data-aktiv={sida === "attgora" ? "1" : "0"}
+                onClick={() => setSida("attgora")}
+              >
+                Att göra
+                {kvarAttGora > 0 && (
+                  <span className="tabnum"> {kvarAttGora}</span>
+                )}
+              </button>
+            </div>
+
+            <div className="knapp-rad hidden md:flex">
+              {sida === "kalender" &&
+                VYER.map((v) => (
+                  <button
+                    key={v.id}
+                    type="button"
+                    className="knapp micro"
+                    data-aktiv={vy === v.id ? "1" : "0"}
+                    onClick={() => setVy(v.id)}
+                    title={`${v.namn} (${v.tangent})`}
+                  >
+                    {v.namn}
+                  </button>
+                ))}
             </div>
 
             <HamtaKnapp />
@@ -572,7 +637,10 @@ export default function KalenderApp() {
         {/* Arbetsytan */}
         <div className="flex-1 min-h-0 flex">
           {/* Skrivbordet: sidopanelen står kvar. Smala skärmar: samma
-              panel, men som en låda som skjuts in ovanpå. */}
+              panel, men som en låda som skjuts in ovanpå. Minimånaden och
+              dagens lista hör kalendern till och tar bara plats på
+              att göra-sidan. */}
+          {sida === "kalender" && (
           <Sidopanel
             peka={peka}
             vy={vy}
@@ -582,8 +650,9 @@ export default function KalenderApp() {
             onNy={() => nyHandelse()}
             onHanteraKalendrar={() => setHanterarKalendrar(true)}
           />
+          )}
 
-          {lada && (
+          {sida === "kalender" && lada && (
             <>
               <div
                 className="lada-overlay lg:hidden"
@@ -618,6 +687,10 @@ export default function KalenderApp() {
           )}
 
           <section className="flex-1 min-w-0 min-h-0 bg-paper relative">
+            {sida === "attgora" ? (
+              <AttGora fokusera={fokusera} />
+            ) : (
+            <>
             {/* Anvisning för den tomma kalendern. Den ligger ovanpå rutnätet
                 men släpper igenom alla pekarhändelser, så att man kan börja
                 dra upp sin första händelse rakt igenom den. */}
@@ -677,6 +750,8 @@ export default function KalenderApp() {
                 onSkapa={(s, e, heldag) => nyHandelse(s, e, heldag)}
               />
             )}
+            </>
+            )}
           </section>
         </div>
 
@@ -684,37 +759,84 @@ export default function KalenderApp() {
             når, inte uppe i ett hörn. */}
         <div className="md:hidden bottenrad shrink-0 sakeromrade-botten">
           <div className="flex items-stretch">
-            {VYER.map((v) => (
-              <button
-                key={v.id}
-                type="button"
-                className="knapp pico flex-1 !border-y-0 !border-l-0 last:!border-r-0"
-                data-aktiv={vy === v.id ? "1" : "0"}
-                onClick={() => setVy(v.id)}
-                aria-label={v.namn}
-              >
-                {v.kort}
-              </button>
-            ))}
-            <button
-              type="button"
-              className="knapp pico px-4 !border-y-0 !border-r-0"
-              data-ton="accent"
-              onClick={() => nyHandelse()}
-              aria-label="Ny händelse"
-            >
-              +
-            </button>
+            {sida === "kalender" ? (
+              <>
+                {VYER.map((v) => (
+                  <button
+                    key={v.id}
+                    type="button"
+                    className="knapp pico flex-1 !border-y-0 !border-l-0"
+                    data-aktiv={vy === v.id ? "1" : "0"}
+                    onClick={() => setVy(v.id)}
+                    aria-label={v.namn}
+                  >
+                    {v.kort}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className="knapp pico flex-1 !border-y-0"
+                  onClick={() => setSida("attgora")}
+                >
+                  Att göra
+                  {kvarAttGora > 0 && (
+                    <span className="tabnum"> {kvarAttGora}</span>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  className="knapp pico px-4 !border-y-0 !border-r-0"
+                  data-ton="accent"
+                  onClick={() => nyHandelse()}
+                  aria-label="Ny händelse"
+                >
+                  +
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="knapp pico flex-1 !border-y-0 !border-l-0"
+                  onClick={() => setSida("kalender")}
+                >
+                  Kalender
+                </button>
+                <button
+                  type="button"
+                  className="knapp pico flex-1 !border-y-0"
+                  data-aktiv="1"
+                  onClick={() => setSida("attgora")}
+                >
+                  Att göra
+                  {kvarAttGora > 0 && (
+                    <span className="tabnum"> {kvarAttGora}</span>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  className="knapp pico px-4 !border-y-0 !border-r-0"
+                  data-ton="accent"
+                  onClick={() => setFokusera((n) => n + 1)}
+                  aria-label="Ny uppgift"
+                >
+                  +
+                </button>
+              </>
+            )}
           </div>
         </div>
 
+        {/* Remsan behålls som designelement men bär bara det som
+            faktiskt hjälper. Posträknare och "Inget att ångra" sa
+            ingenting man kan handla på. */}
         <div className="hidden md:block">
           <ColophonStrip
-            left={`${butik.handelser.length} poster · ${
-              butik.kalendrar.filter((k) => k.synlig).length
-            } av ${butik.kalendrar.length} kalendrar synliga`}
-            centre="1 · 2 · 3 · 4 · 5 växlar vy — N ny — T idag — ⌘K palett"
-            right={butik.kanAngra ? "⌘Z ångrar" : "Inget att ångra"}
+            centre={
+              sida === "kalender"
+                ? "1 · 2 · 3 · 4 · 5 växlar vy — N ny — T idag — ⌘K palett"
+                : "⌘K palett — klicka en rad för att redigera"
+            }
           />
         </div>
       </div>

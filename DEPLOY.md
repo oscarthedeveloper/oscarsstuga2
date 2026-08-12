@@ -9,7 +9,8 @@ ett — utan molnnycklar är den en helt vanlig lokal kalender.
 
 **Databasen.** Öppna ditt projekt → **SQL Editor** → **New query**. Klistra
 in hela `supabase/schema.sql` och kör. Filen går att köra om utan att något
-går sönder.
+går sönder — kör den igen efter varje uppdatering av appen, så att nya
+tabeller kommer med. (Att göra-listan lade till `uppgifter`.)
 
 **Kontot.** **Authentication → Users → Add user → Create new user**. Fyll i
 e-post och lösenord, och kryssa i **Auto Confirm User** så slipper du

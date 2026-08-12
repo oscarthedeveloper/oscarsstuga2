@@ -219,6 +219,7 @@ prov("gravstenar städas först när de nått molnet", () => {
   const o: Ogonblick = {
     handelser: [{ ...gammal, synkad: true }, { ...gammal, id: "b", synkad: false }],
     kalendrar: [],
+    uppgifter: [],
   };
   const kvar = stadaGravstenar(o, new Date("2026-08-12T00:00:00Z"));
   // Den synkade gravstenen får försvinna; den osynkade måste vänta,
@@ -232,7 +233,7 @@ prov("färska gravstenar rörs inte", () => {
     synkad: true,
   };
   const kvar = stadaGravstenar(
-    { handelser: [fersk], kalendrar: [] },
+    { handelser: [fersk], kalendrar: [], uppgifter: [] },
     new Date("2026-08-12T00:00:00Z")
   );
   lika(kvar.handelser.length, 1);
@@ -254,6 +255,7 @@ prov("borttagen kalender tar med sig sina händelser som gravstenar", () => {
   const o: Ogonblick = {
     kalendrar: [k("a", "Arbete", T("0T10:00:00Z")), k("s", "Studier", T("0T10:00:00Z"))],
     handelser: [h("h1", "Möte", T("0T10:00:00Z"), { kalenderId: "s" })],
+    uppgifter: [],
   };
   const ut = taBortKalender(o, "s", null);
   lika(levande(ut.kalendrar).map((x) => x.id), ["a"]);
@@ -268,6 +270,7 @@ prov("flyttade händelser stämplas om så de skickas upp", () => {
     handelser: [
       { ...h("h1", "Möte", T("0T10:00:00Z"), { kalenderId: "s" }), synkad: true },
     ],
+    uppgifter: [],
   };
   const ut = taBortKalender(o, "s", "a");
   lika(ut.handelser[0].kalenderId, "a");
@@ -283,6 +286,7 @@ prov("osynkade poster räknas rätt", () => {
       h("b", "Två", T("0T10:00:00Z")),
     ],
     kalendrar: [k("a", "Arbete", T("0T10:00:00Z"))],
+    uppgifter: [],
   };
   lika(osynkade(o.handelser).map((x) => x.id), ["b"]);
   lika(antalIvag(o), 2, "kalendern är också osynkad");
@@ -298,7 +302,7 @@ prov("en ändring markerar posten som osynkad", () => {
 prov("en offlinekö överlever flera varv utan nät", () => {
   // Tre ändringar i rad utan synk emellan. Alla tre måste ligga kvar i
   // kön; ingen får tappas bort bara för att nästa hann före.
-  let o: Ogonblick = { handelser: [], kalendrar: [] };
+  let o: Ogonblick = { handelser: [], kalendrar: [], uppgifter: [] };
   o = { ...o, handelser: [h("a", "Ett", T("0T10:00:00Z"))] };
   o = { ...o, handelser: [...o.handelser, h("b", "Två", T("0T11:00:00Z"))] };
   o = { ...o, handelser: [...o.handelser, h("c", "Tre", T("0T12:00:00Z"))] };
@@ -356,6 +360,7 @@ provAsync("en synkrunda flyttar markören ENDAST med hämtade rader", async () =
   const lokal: Ogonblick = {
     handelser: [h("a", "A:s händelse", T("2T10:00:04Z"))],
     kalendrar: [],
+    uppgifter: [],
   };
 
   await synka(lokal, anvandare, klient as never);
@@ -391,7 +396,7 @@ provAsync("markören flyttas fram av hämtade rader", async () => {
   });
 
   const resultat = await synka(
-    { handelser: [], kalendrar: [] },
+    { handelser: [], kalendrar: [], uppgifter: [] },
     anvandare,
     klient as never
   );

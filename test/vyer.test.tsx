@@ -19,6 +19,7 @@ import KalenderApp from "../components/KalenderApp";
 import HandelsePanel from "../components/HandelsePanel";
 import Kommandopalett, { tolkaDatum } from "../components/Kommandopalett";
 import KalenderPanel from "../components/KalenderPanel";
+import AttGora from "../components/AttGora";
 import { STANDARDKALENDRAR } from "../lib/butik";
 import { provdata } from "./provdata";
 import { expanderaAlla } from "../lib/upprepning";
@@ -214,8 +215,8 @@ prov("appskalet ritas utan att kasta", () => {
   innehaller(html, "Vecka");
   innehaller(html, "Ny händelse");
   innehaller(html, "Hantera");
-  // Lagret startar tomt: kolofonen skall räkna noll poster.
-  innehaller(html, "0 poster");
+  // Sidväxeln mellan kalendern och att göra.
+  innehaller(html, "Att göra");
   // Tvångshämtningen kan inte göra något utan inloggning och skall inte
   // ritas — men statusknappen SKALL finnas, annars har den som undrar
   // varför inget synkas ingenstans att fråga.
@@ -227,8 +228,16 @@ prov("appskalet ritas utan att kasta", () => {
   // monteringen: den läser localStorage för att se om den avfärdats, och
   // det går inte att göra under serverrenderingen utan att riskera en
   // hydreringskrock. Därför mäts den inte här.
-  // Kolofonremsorna i topp och botten hör till designsystemet.
-  innehaller(html, "Lokalt lager");
+  // Kolofonremsan finns kvar som designelement, men bär numera bara
+  // tangentbordshjälpen. Posträknare och "Inget att ångra" togs bort:
+  // en remsa som fylls för att den har tre fack blir dekoration, och
+  // dekoration som ser ut som information är värre än tom plats.
+  innehaller(html, "växlar vy");
+  for (const fyllnad of ["Inget att ångra", "Offline först", "poster ·"]) {
+    if (html.includes(fyllnad)) {
+      throw new Error(`fyllnadstexten "${fyllnad}" finns kvar`);
+    }
+  }
 });
 
 prov("redigeringspanelen ritar upprepningsreglerna", () => {
@@ -261,6 +270,17 @@ prov("kalenderpanelen listar kalendrarna och kan lägga till nya", () => {
   innehaller(html, "Ny kalender");
   innehaller(html, "Lägg till");
   innehaller(html, "Ta bort");
+});
+
+prov("att göra ritar inmatning, filter och tomt läge", () => {
+  const html = renderToStaticMarkup(h(ButikProvider, null, h(AttGora)));
+  innehaller(html, "Vad behöver göras?");
+  innehaller(html, "Lägg till");
+  // Kalendrarna skall gå att filtrera på, med samma namn som i kalendern.
+  for (const k of STANDARDKALENDRAR) innehaller(html, k.namn);
+  innehaller(html, "Visa klara");
+  // Tomt lager: anvisningen skall stå där, inte en tom yta.
+  innehaller(html, "Ingenting att göra");
 });
 
 prov("paletten listar kommandon och tolkar datum", () => {

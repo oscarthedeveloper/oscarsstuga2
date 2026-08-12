@@ -10,13 +10,14 @@
  * kan röra flera händelser samtidigt (t.ex. när en serie kapas i två).
  */
 
-import type { Handelse, Kalender, Synkbar } from "./typer";
+import type { Handelse, Kalender, Prioritet, Synkbar, Uppgift } from "./typer";
 import { STANDARD_UPPREPNING } from "./upprepning";
 import { stampel } from "./tid";
 
 export interface Ogonblick {
   handelser: Handelse[];
   kalendrar: Kalender[];
+  uppgifter: Uppgift[];
 }
 
 export interface Lager {
@@ -65,10 +66,13 @@ export class LokaltLager implements Lager {
         return null;
       }
       // Migrering: fyll i fält som saknas i äldre poster hellre än att
-      // kasta hela lagret.
+      // kasta hela lagret. `uppgifter` tillkom efter att appen redan
+      // haft riktiga användare — ett lager utan dem är inte trasigt,
+      // bara äldre, och skall läsas som en tom lista.
       return stadaGravstenar({
         handelser: data.handelser.map(normalisera),
         kalendrar: data.kalendrar.map(normaliseraKalender),
+        uppgifter: (data.uppgifter ?? []).map(normaliseraUppgift),
       });
     } catch {
       return null;
@@ -111,6 +115,7 @@ export function stadaGravstenar(o: Ogonblick, idag = new Date()): Ogonblick {
   return {
     handelser: o.handelser.filter(lever),
     kalendrar: o.kalendrar.filter(lever),
+    uppgifter: o.uppgifter.filter(lever),
   };
 }
 
@@ -145,6 +150,26 @@ export function normaliseraKalender(k: Partial<Kalender>): Kalender {
     andrad: k.andrad ?? nu(),
     raderad: k.raderad ?? null,
     synkad: k.synkad ?? false,
+  };
+}
+
+export function normaliseraUppgift(u: Partial<Uppgift>): Uppgift {
+  const p = Math.round(Number(u.prioritet ?? 2));
+  return {
+    id: u.id ?? nyId(),
+    titel: u.titel ?? "",
+    anteckning: u.anteckning ?? "",
+    // Utanför skalan är alltid ett fel i indata, inte en avsikt. Mitten
+    // är det minst dramatiska svaret.
+    prioritet: (p === 1 || p === 2 || p === 3 ? p : 2) as Prioritet,
+    kalenderId: u.kalenderId ?? "arbete",
+    klar: !!u.klar,
+    klarVid: u.klarVid ?? null,
+    forfaller: u.forfaller || null,
+    skapad: u.skapad ?? nu(),
+    andrad: u.andrad ?? u.skapad ?? nu(),
+    raderad: u.raderad ?? null,
+    synkad: u.synkad ?? false,
   };
 }
 
@@ -266,15 +291,58 @@ export function taBortKalender(
       ? flyttaTill
       : null;
 
+  // Uppgifterna delar kalender med händelserna och måste följa med
+  // samma väg. Glöms de bort blir de osynliga men ligger kvar i lagret.
+  const flyttaEller = <T extends Synkbar & { kalenderId: string }>(x: T): T => {
+    if (x.kalenderId !== id || x.raderad) return x;
+    return flyttmal
+      ? rord({ ...x, kalenderId: flyttmal }, tidpunkt)
+      : gravsatt(x, tidpunkt);
+  };
+
   return {
     kalendrar: o.kalendrar.map((k) =>
       k.id === id ? gravsatt(k, tidpunkt) : k
     ),
-    handelser: o.handelser.map((h) => {
-      if (h.kalenderId !== id || h.raderad) return h;
-      return flyttmal
-        ? rord({ ...h, kalenderId: flyttmal }, tidpunkt)
-        : gravsatt(h, tidpunkt);
-    }),
+    handelser: o.handelser.map(flyttaEller),
+    uppgifter: o.uppgifter.map(flyttaEller),
   };
+}
+
+/* ==================================================================
+   UPPGIFTER
+   ================================================================== */
+
+/**
+ * Ordningen på att göra-listan.
+ *
+ * Klara sist — de är kvitton, inte arbete. Sedan starkast styrka först,
+ * och inom samma styrka det som förfaller snarast. Uppgifter utan datum
+ * hamnar efter dem som har ett: ett satt datum är ett löfte, och löften
+ * går före önskemål. Sist skapelseordning, så att listan aldrig hoppar
+ * omkring mellan två renderingar.
+ */
+export function sorteraUppgifter(lista: Uppgift[]): Uppgift[] {
+  return [...lista].sort((a, b) => {
+    if (a.klar !== b.klar) return a.klar ? 1 : -1;
+    if (a.klar && b.klar) {
+      // Senast avklarad överst bland de klara.
+      return (b.klarVid ?? "").localeCompare(a.klarVid ?? "");
+    }
+    if (a.prioritet !== b.prioritet) return a.prioritet - b.prioritet;
+    if (a.forfaller !== b.forfaller) {
+      if (!a.forfaller) return 1;
+      if (!b.forfaller) return -1;
+      return a.forfaller.localeCompare(b.forfaller);
+    }
+    return a.skapad.localeCompare(b.skapad);
+  });
+}
+
+/** Sätter eller river av bocken, med tidsstämpel för sorteringen. */
+export function vaxlaKlar(u: Uppgift, tidpunkt = nu()): Uppgift {
+  return rord(
+    { ...u, klar: !u.klar, klarVid: u.klar ? null : tidpunkt },
+    tidpunkt
+  );
 }

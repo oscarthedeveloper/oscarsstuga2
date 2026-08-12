@@ -95,6 +95,57 @@ create trigger synk_vid_handelser
   for each row execute function public.satt_synk_vid();
 
 -- -------------------------------------------------------------------
+-- UPPGIFTER (att göra-listan)
+--
+-- Egen tabell, inte en kolumn på handelser. En händelse äger en plats i
+-- tiden; en uppgift äger bara en avsikt. Att pressa in dem i samma rad
+-- hade betytt halva fält tomma i varje post och en modell som ljuger om
+-- vad den innehåller.
+--
+-- `forfaller` är DATE och inte timestamptz: en uppgift förfaller en dag,
+-- inte ett klockslag, och skall inte flytta sig när man reser.
+--
+-- Kalendern delas med händelserna, så samma Arbete/Privat/Studier styr
+-- färg och filter på båda hållen.
+-- -------------------------------------------------------------------
+create table if not exists public.uppgifter (
+  agare        uuid        not null default auth.uid()
+                           references auth.users (id) on delete cascade,
+  id           text        not null,
+  titel        text        not null default '',
+  anteckning   text        not null default '',
+  prioritet    smallint    not null default 2
+                           check (prioritet between 1 and 3),
+  kalender_id  text        not null,
+  klar         boolean     not null default false,
+  klar_vid     timestamptz,
+  forfaller    date,
+  skapad       timestamptz not null default now(),
+  andrad       timestamptz not null,
+  raderad      timestamptz,
+  synk_vid     timestamptz not null default now(),
+  primary key (agare, id)
+);
+
+drop trigger if exists synk_vid_uppgifter on public.uppgifter;
+create trigger synk_vid_uppgifter
+  before insert or update on public.uppgifter
+  for each row execute function public.satt_synk_vid();
+
+create index if not exists uppgifter_synk_idx
+  on public.uppgifter (agare, synk_vid);
+
+alter table public.uppgifter enable row level security;
+
+drop policy if exists "egna uppgifter" on public.uppgifter;
+create policy "egna uppgifter"
+  on public.uppgifter
+  for all
+  to authenticated
+  using (agare = auth.uid())
+  with check (agare = auth.uid());
+
+-- -------------------------------------------------------------------
 -- INDEX
 -- Varje synkrunda frågar "vad har hänt sedan X, för mig". Utan det här
 -- indexet blir det en full tabellgenomgång vid varje appstart.
@@ -153,6 +204,8 @@ as $$
     where raderad is not null and raderad < now() - interval '90 days';
   delete from public.kalendrar
     where raderad is not null and raderad < now() - interval '90 days';
+  delete from public.uppgifter
+    where raderad is not null and raderad < now() - interval '90 days';
 $$;
 
 -- ===================================================================
@@ -198,6 +251,15 @@ begin
       and tablename = 'kalendrar'
   ) then
     alter publication supabase_realtime add table public.kalendrar;
+  end if;
+
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'uppgifter'
+  ) then
+    alter publication supabase_realtime add table public.uppgifter;
   end if;
 end
 $$;

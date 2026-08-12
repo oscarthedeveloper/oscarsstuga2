@@ -304,6 +304,54 @@ select.falt {
   min-width: 0;
 }
 
+/* ------------------------------------------------------------------
+   DAGSHUVUDET
+   Vid gott om plats står veckodag och datum på rad. På en telefon med
+   sju kolumner finns ingen sådan plats — då staplas de i stället, och
+   siffran krymper precis så mycket att den ryms hel.
+   ------------------------------------------------------------------ */
+.daghuvud {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  padding: 0.35rem 0.5rem;
+}
+
+.daghuvud-tal {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+@media (max-width: 767px) {
+  .daghuvud {
+    flex-direction: column;
+    align-items: center;
+    gap: 0.05rem;
+    padding: 0.3rem 0.1rem;
+  }
+
+  .daghuvud-veckodag {
+    font-size: 0.5rem;
+    letter-spacing: 0.06em;
+  }
+
+  .daghuvud-tal {
+    font-size: 1.05rem;
+  }
+
+  /* Accentmarkeringen ersätter ordet "Idag", som inte får plats. */
+  .daghuvud[data-idag="1"] .daghuvud-tal {
+    background: var(--accent);
+    color: var(--ink);
+    padding: 0.05rem 0.28rem;
+  }
+
+  .daghuvud[data-idag="1"] .daghuvud-veckodag {
+    opacity: 1;
+    font-weight: 500;
+  }
+}
+
 .dagkolumn:first-child {
   border-left: 0;
 }
@@ -592,6 +640,124 @@ select.falt {
   opacity: 0.55;
 }
 
+/* ------------------------------------------------------------------
+   CHIPRAD
+   En rad med val som hellre rullar i sidled än radbryter. Sex kalendrar
+   plus två lägen blir tre rader på en telefon, och tre rader krom ovanför
+   en lista äter upp själva listan. I sidled kostar de en rad, och att
+   något ligger utanför kanten syns på att raden är avklippt.
+   ------------------------------------------------------------------ */
+.chiprad {
+  display: flex;
+  gap: 0.35rem;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.chiprad::-webkit-scrollbar {
+  display: none;
+}
+
+.chiprad > * {
+  flex-shrink: 0;
+}
+
+/* På skrivbordet finns plats; då får de radbryta som vanligt. */
+@media (min-width: 768px) {
+  .chiprad {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+}
+
+/* ==================================================================
+   ATT GÖRA
+   Samma vokabulär som kalendern: 1px-ramar, inga rundade hörn, accenten
+   sparad till det som verkligen kräver uppmärksamhet.
+   ================================================================== */
+.uppgift {
+  border-bottom: 1px solid rgb(17 17 17 / 0.14);
+  transition: background-color 120ms linear;
+}
+
+.uppgift:hover {
+  background: var(--panel);
+}
+
+/* En avbockad uppgift skall synas men inte konkurrera. Genomstrykning
+   plus nedtoning, aldrig bara det ena — enbart grått läser som
+   "inaktiverad", enbart genomstruket som "borttaget". */
+.uppgift[data-klar="1"] .uppgift-titel {
+  text-decoration: line-through;
+  opacity: 0.45;
+}
+
+.uppgift[data-klar="1"] {
+  background: rgb(17 17 17 / 0.02);
+}
+
+.uppgift-titel {
+  font-size: 0.82rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+/* Träffytan är större än rutan. En 17-pixelsruta är rätt STORLEK men fel
+   MÅL: ett finger täcker runt fyrtio pixlar, och en bock man missar är
+   värre än ingen bock alls. Ytan är osynlig, rutan är den man ser. */
+.uppgift-bockyta {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 2px 6px 6px 0;
+  margin: -2px -6px -6px 0;
+  min-width: 30px;
+  min-height: 26px;
+}
+
+.uppgift-bock {
+  width: 17px;
+  height: 17px;
+  margin-top: 1px;
+  border: 1px solid var(--ink);
+  background: var(--panel);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.62rem;
+  line-height: 1;
+  transition: background-color 120ms linear;
+}
+
+.uppgift-bockyta:hover .uppgift-bock {
+  background: var(--paper);
+}
+
+.uppgift-bock[data-klar="1"] {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+@media (max-width: 767px) {
+  .uppgift-bockyta {
+    min-width: 44px;
+    min-height: 40px;
+    padding: 2px 12px 12px 0;
+    margin: -2px -12px -12px 0;
+  }
+
+  .uppgift-bock {
+    width: 22px;
+    height: 22px;
+  }
+
+  .uppgift-titel {
+    font-size: 0.88rem;
+  }
+}
+
 /* ==================================================================
    SIDOPANEL
    ================================================================== */
@@ -800,6 +966,12 @@ select.falt {
    börjar en bit ned lämnar kvar en remsa av kalendern, så att man ser
    var man är. */
 @media (max-width: 767px) {
+  :root {
+    /* Sju kolumner delar på skärmen; varje pixel i tidsrännilen är en
+       pixel mindre kalender. Klockslagen är ändå läsbara i 40px. */
+    --rannil: 40px;
+  }
+
   .redigeringspanel {
     top: auto;
     left: 0;

@@ -11,7 +11,7 @@ hörnparenteser och kolofonremsor. Inga rundade hörn, ingen grotesk.
 ```
 npm install
 npm run dev      # http://localhost:3000
-npm test         # 71 prov: upprepningar, kalendrar, synk och vyer
+npm test         # 88 prov: upprepningar, kalendrar, uppgifter, synk, vyer
 npm run typecheck
 ```
 
@@ -91,6 +91,30 @@ nya händelser måste kunna hamna någonstans.
 Sex färgtoner finns; fler kalendrar än så får dela på dem. Namnet, inte
 färgen, bär alltid informationen.
 
+## Att göra
+
+En andra sida i samma app — samma butik, samma kalendrar, samma synk.
+Växla i navigeringsraden, eller sök *Visa att göra* i paletten.
+
+Varje uppgift har en **styrka**: 1 gäller först, 3 när det finns tid.
+Styrkan visas både som siffra och som tre streck där de fyllda är
+styrkan — en ensam accentfärg hade sagt "viktigt" utan att säga hur
+viktigt, och varit osynlig för den som inte skiljer färger åt.
+
+Uppgifter **kategoriseras med kalendrarna** — Arbete, Privat, Studier —
+och ärver deras färg och namn. Byter du namn på en kalender följer
+uppgifterna med; raderar du en frågar appen vart de skall ta vägen,
+precis som för händelserna.
+
+Ordningen är listans hela poäng: klara sist, sedan starkast styrka,
+och inom samma styrka det som förfaller snarast. En uppgift utan datum
+hamnar efter en med — ett satt datum är ett löfte, ett tomt fält ett
+önskemål. Styrkan väger dock alltid tyngre än datumet, annars styr
+kalendern prioriteringen i stället för du.
+
+Ett förfallodatum är frivilligt. Passeras det markeras raden med accent
+och räknas i fotens *försenade*.
+
 ## Mobil
 
 Appen är byggd för att användas med tummen.
@@ -102,6 +126,12 @@ Appen är byggd för att användas med tummen.
 - Panelerna kommer upp som bottenark i stället för sidopaneler.
 - Fälten är minst 16px, annars zoomar iOS in vid fokus och hela layouten
   hoppar.
+- På att göra-sidan rullar filterraden i sidled i stället för att
+  radbryta. Sex kalendrar plus två lägen blir tre rader på en telefon,
+  och tre rader krom ovanför en lista äter upp själva listan.
+- Bocken har en osynlig träffyta på 44px runt sin 22-pixelsruta. Rutan
+  är rätt storlek men fel mål: ett finger täcker fyrtio pixlar, och en
+  bock man missar är värre än ingen bock alls.
 
 **Drag på pekskärm sker efter långtryck.** Ett finger som drar ett block
 och ett finger som rullar rutnätet ser likadana ut i början, så de måste
@@ -188,6 +218,7 @@ components/HandelsePanel.tsx   Redigering, inklusive upprepningsformuläret
 components/KalenderPanel.tsx   Lägg till, byt namn, ta bort kalendrar
 components/Kommandopalett.tsx  ⌘K
 components/Sidopanel.tsx       Minimånad, kalenderfilter, dagens lista
+components/AttGora.tsx         Att göra: styrka, kategori, förfallodatum
 components/Konto.tsx           Inloggning och synkstatus
 components/Offline.tsx         Service worker, offlineremsa, uppdatering
 
@@ -211,7 +242,7 @@ Demomaterialet som tidigare såddes automatiskt ligger kvar i
 
 ## Prov
 
-`npm test` kör fyra sviter:
+`npm test` kör fem sviter:
 
 - **Upprepningsmotorn** — 22 prov över skottår, korta månader, sommartid,
   räknade serier sedda genom sena fönster, undantag och flyttade förekomster.
@@ -221,6 +252,9 @@ Demomaterialet som tidigare såddes automatiskt ligger kvar i
   offlinekön och synkmarkören. Skrivna som berättelser om två enheter, eftersom det är så
   felen uppstår: telefonen i tunnelbanan och datorn på kontoret ändrar
   samma möte och möts först en timme senare.
-- **Vyerna** — 11 prov som renderar varje vy och varje panel till HTML och
+- **Uppgifterna** — 16 prov, mest om sorteringen. En att göra-lista är i
+  praktiken sin ordning: står fel sak överst gör man fel sak, och det
+  märks inte förrän dagen är slut.
+- **Vyerna** — 12 prov som renderar varje vy och varje panel till HTML och
   kontrollerar att de innehåller det de skall, inklusive att kolumnpackningen
   faktiskt delar bredden mellan krockande block.

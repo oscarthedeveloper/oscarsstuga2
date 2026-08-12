@@ -23,6 +23,7 @@ import {
   useState,
 } from "react";
 import type { Forekomst, Layout } from "@/lib/typer";
+import { useMobil } from "@/lib/anvandMedia";
 import { laggUt, laggUtBand, type Packbar } from "@/lib/layout";
 import {
   addDagar,
@@ -120,6 +121,8 @@ export default function TidsRutnat({
   const skrollRef = useRef<HTMLDivElement | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
   const [nu, setNu] = useState(() => new Date());
+  // Bara veckovyn blir riktigt trång; en och tre dagar har gott om plats.
+  const smal = useMobil() && dagar.length > 3;
 
   // Nu-linjen tickar en gång i minuten. Oftare vore slöseri; mer sällan
   // gör att linjen syns stå still.
@@ -555,19 +558,28 @@ export default function TidsRutnat({
           {dagar.map((d) => {
             const idag = arSammaDag(d, nu);
             return (
+              /*
+               * Dagshuvudet byter riktning med bredden. Sju kolumner på en
+               * telefon ger runt femtio pixlar var — datum och veckodag
+               * bredvid varandra får då inte plats och siffran klipps.
+               * Staplade ryms båda, och "Idag" behöver inget eget ord när
+               * siffran ändå bär accentfärgen.
+               */
               <div
                 key={nyckel(d)}
                 data-idag={idag ? "1" : "0"}
                 data-helg={arHelg(d) ? "1" : "0"}
-                className="dagkolumn flex-1 flex items-baseline gap-1.5 px-2 py-1.5"
+                className="dagkolumn daghuvud flex-1"
               >
-                <span className="display text-[1.35rem] leading-none tabnum">
+                <span className="daghuvud-veckodag nano opacity-70">
+                  {smal
+                    ? VECKODAGAR_KORT[d.getDay()].slice(0, 2)
+                    : VECKODAGAR_KORT[d.getDay()]}
+                </span>
+                <span className="daghuvud-tal display tabnum">
                   {d.getDate()}
                 </span>
-                <span className="nano opacity-70">
-                  {VECKODAGAR_KORT[d.getDay()]}
-                </span>
-                {idag && (
+                {idag && !smal && (
                   <span className="pico ml-auto text-accent">Idag</span>
                 )}
               </div>

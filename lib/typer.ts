@@ -122,6 +122,45 @@ export interface Forekomst {
   ton: number;
 }
 
+/**
+ * En uppgift på att göra-listan.
+ *
+ * Uppgifter och händelser är medvetet SKILDA saker. En händelse äger en
+ * plats i tiden — den börjar och slutar. En uppgift äger bara en avsikt;
+ * den kan ha ett datum då den senast bör vara gjord, men den upptar
+ * ingen tid i rutnätet. Att pressa in dem i samma tabell hade betytt
+ * halva fält tomma i varje rad och en modell som ljuger om vad den är.
+ *
+ * Kalendern delas däremot: en uppgift kategoriseras med samma Arbete,
+ * Privat, Studier som händelserna, och ärver därmed färg och filter.
+ */
+export interface Uppgift extends Synkbar {
+  id: string;
+  titel: string;
+  anteckning: string;
+  /** 1 = starkast. Se PRIORITETER. */
+  prioritet: Prioritet;
+  kalenderId: string;
+  klar: boolean;
+  /** När den bockades av, för sortering och för att kunna ångra. */
+  klarVid: string | null;
+  /** Sista dag, som lokal datumnyckel YYYY-MM-DD. Frivillig. */
+  forfaller: string | null;
+  skapad: string;
+}
+
+export type Prioritet = 1 | 2 | 3;
+
+export const PRIORITETER: {
+  varde: Prioritet;
+  namn: string;
+  kort: string;
+}[] = [
+  { varde: 1, namn: "Styrka 1 — först", kort: "1" },
+  { varde: 2, namn: "Styrka 2 — sedan", kort: "2" },
+  { varde: 3, namn: "Styrka 3 — när det finns tid", kort: "3" },
+];
+
 /** Hur långt en ändring av en serie skall slå. */
 export type Rackvidd = "denna" | "framat" | "alla";
 
