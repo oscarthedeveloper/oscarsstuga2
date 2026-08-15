@@ -713,11 +713,17 @@ export default function TidsRutnat({
                         data-dras={dras ? "1" : "0"}
                         data-kort={kort ? "1" : "0"}
                         data-armerad={armerad === seg.f.nyckel ? "1" : "0"}
+                        data-over={l?.over ? "1" : "0"}
                         style={{
                           top: topp,
                           height: hojd,
                           left: `calc(${(l?.vanster ?? 0) * 100}% + 1px)`,
                           width: `calc(${(l?.bredd ?? 1) * 100}% - 2px)`,
+                          /* Trappans djup styr staplingen. Som CSS-variabel
+                             och inte som inline z-index — ett inline-värde
+                             hade slagit ut :hover och [data-vald], som
+                             behöver kunna lyfta blocket över de andra. */
+                          ["--lager" as string]: l?.lager ?? 0,
                         }}
                         onPointerDown={(e) => paBlockNed(e, seg)}
                         onPointerMove={paRorelse}

@@ -151,6 +151,36 @@ export interface Uppgift extends Synkbar {
 
 export type Prioritet = 1 | 2 | 3;
 
+/**
+ * En anteckning.
+ *
+ * Det tredje benet. Händelsen äger en plats i tiden, uppgiften en
+ * avsikt — anteckningen äger det man vet. Att pressa in den i någon av
+ * de andra hade betytt en uppgift som aldrig kan bockas av, eller en
+ * händelse utan varaktighet.
+ *
+ * `datum` är frivilligt och gör skillnaden mellan de två sorters
+ * anteckningar man faktiskt skriver: dagboken, som hör till en bestämd
+ * dag och dyker upp i kalendern bredvid den dagens möten, och den
+ * fristående, som hör till ett ämne och inte till ett datum alls.
+ * Samma post, samma tabell — skillnaden är att fältet är satt.
+ *
+ * Kalendern delas med händelser och uppgifter, så att en anteckning
+ * märkt Arbete ärver samma färg och samma filter som mötet den handlar om.
+ */
+export interface Anteckning extends Synkbar {
+  id: string;
+  titel: string;
+  /** Fri text. Får innehålla [[haklänkar]] till andra poster. */
+  brodtext: string;
+  kalenderId: string;
+  /** Datumnyckel YYYY-MM-DD om anteckningen hör till en dag, annars null. */
+  datum: string | null;
+  /** Nålade ligger överst i listan, oavsett ålder. */
+  nalad: boolean;
+  skapad: string;
+}
+
 export const PRIORITETER: {
   varde: Prioritet;
   namn: string;
@@ -168,8 +198,18 @@ export interface Layout {
   /** 0–1, andel av kolumnbredden. */
   vanster: number;
   bredd: number;
-  /** Överlappande block läggs i lager så kanterna syns. */
+  /**
+   * Staplingsordning. HÖGRE ligger överst, och den som börjar först får
+   * det högsta värdet — mötet som inleder timmen är det man läser, och
+   * det som ansluter senare lägger sig under.
+   */
   lager: number;
+  /**
+   * Sant när blocket täcker något annat. Bara då görs ytan genomskinlig:
+   * ett block utan något under sig skulle annars släppa igenom rutnätets
+   * linjer, vilket ser ut som ett fel snarare än som ett djup.
+   */
+  over: boolean;
 }
 
 export const TON_NAMN = [

@@ -10,7 +10,14 @@
  * kan röra flera händelser samtidigt (t.ex. när en serie kapas i två).
  */
 
-import type { Handelse, Kalender, Prioritet, Synkbar, Uppgift } from "./typer";
+import type {
+  Anteckning,
+  Handelse,
+  Kalender,
+  Prioritet,
+  Synkbar,
+  Uppgift,
+} from "./typer";
 import { STANDARD_UPPREPNING } from "./upprepning";
 import { stampel } from "./tid";
 
@@ -18,6 +25,7 @@ export interface Ogonblick {
   handelser: Handelse[];
   kalendrar: Kalender[];
   uppgifter: Uppgift[];
+  anteckningar: Anteckning[];
 }
 
 export interface Lager {
@@ -29,6 +37,12 @@ export interface Lager {
  * Versionen i nyckeln bumpas när lagrets innehåll inte längre går att
  * lita på. v1 innehöll exempeldata som såddes automatiskt; v2 startar
  * tom; v3 bär tidsstämplar och gravstenar för synkningen.
+ *
+ * Anteckningarna bumpade den INTE, och det är ett medvetet val. Ett nytt
+ * fält som saknas i äldre lager är inte ett trasigt lager utan ett äldre,
+ * och det läses som en tom lista precis som uppgifterna gjorde när de
+ * tillkom. Hade nyckeln bumpats till v4 skulle varje befintlig enhet ha
+ * öppnat appen och funnit den tom.
  */
 const LAGRINGSNYCKEL = "kalendariet.v3";
 
@@ -73,6 +87,7 @@ export class LokaltLager implements Lager {
         handelser: data.handelser.map(normalisera),
         kalendrar: data.kalendrar.map(normaliseraKalender),
         uppgifter: (data.uppgifter ?? []).map(normaliseraUppgift),
+        anteckningar: (data.anteckningar ?? []).map(normaliseraAnteckning),
       });
     } catch {
       return null;
@@ -116,6 +131,7 @@ export function stadaGravstenar(o: Ogonblick, idag = new Date()): Ogonblick {
     handelser: o.handelser.filter(lever),
     kalendrar: o.kalendrar.filter(lever),
     uppgifter: o.uppgifter.filter(lever),
+    anteckningar: o.anteckningar.filter(lever),
   };
 }
 
@@ -170,6 +186,24 @@ export function normaliseraUppgift(u: Partial<Uppgift>): Uppgift {
     andrad: u.andrad ?? u.skapad ?? nu(),
     raderad: u.raderad ?? null,
     synkad: u.synkad ?? false,
+  };
+}
+
+export function normaliseraAnteckning(a: Partial<Anteckning>): Anteckning {
+  return {
+    id: a.id ?? nyId(),
+    titel: a.titel ?? "",
+    brodtext: a.brodtext ?? "",
+    kalenderId: a.kalenderId ?? "arbete",
+    // Tom sträng och null betyder samma sak — ingen dag — och måste
+    // lagras likadant, annars ser två identiska anteckningar olika ut
+    // för synkningen och skickas fram och tillbaka i all evighet.
+    datum: a.datum || null,
+    nalad: !!a.nalad,
+    skapad: a.skapad ?? nu(),
+    andrad: a.andrad ?? a.skapad ?? nu(),
+    raderad: a.raderad ?? null,
+    synkad: a.synkad ?? false,
   };
 }
 
@@ -291,8 +325,9 @@ export function taBortKalender(
       ? flyttaTill
       : null;
 
-  // Uppgifterna delar kalender med händelserna och måste följa med
-  // samma väg. Glöms de bort blir de osynliga men ligger kvar i lagret.
+  // Uppgifter och anteckningar delar kalender med händelserna och måste
+  // följa med samma väg. Glöms de bort blir de osynliga men ligger kvar
+  // i lagret.
   const flyttaEller = <T extends Synkbar & { kalenderId: string }>(x: T): T => {
     if (x.kalenderId !== id || x.raderad) return x;
     return flyttmal
@@ -306,6 +341,7 @@ export function taBortKalender(
     ),
     handelser: o.handelser.map(flyttaEller),
     uppgifter: o.uppgifter.map(flyttaEller),
+    anteckningar: o.anteckningar.map(flyttaEller),
   };
 }
 
@@ -345,4 +381,24 @@ export function vaxlaKlar(u: Uppgift, tidpunkt = nu()): Uppgift {
     { ...u, klar: !u.klar, klarVid: u.klar ? null : tidpunkt },
     tidpunkt
   );
+}
+
+/* ==================================================================
+   ANTECKNINGAR
+   ================================================================== */
+
+/**
+ * Ordningen i anteckningslistan.
+ *
+ * Nålade först — det är hela poängen med att nåla. Sedan senast ändrad,
+ * inte senast skapad: den anteckning man höll på med är den man med
+ * största sannolikhet vill tillbaka till, och en lista sorterad på
+ * skapelsedatum begraver den under allt man skrivit sedan dess.
+ */
+export function sorteraAnteckningar(lista: Anteckning[]): Anteckning[] {
+  return [...lista].sort((a, b) => {
+    if (a.nalad !== b.nalad) return a.nalad ? -1 : 1;
+    if (a.andrad !== b.andrad) return b.andrad.localeCompare(a.andrad);
+    return a.id.localeCompare(b.id);
+  });
 }

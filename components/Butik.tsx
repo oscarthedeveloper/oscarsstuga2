@@ -21,6 +21,7 @@ import {
   useState,
 } from "react";
 import type {
+  Anteckning,
   Forekomst,
   Handelse,
   Kalender,
@@ -32,6 +33,7 @@ import {
   LokaltLager,
   STANDARDKALENDRAR,
   andraKalender,
+  normaliseraAnteckning,
   gravsatt,
   klamTon,
   laggTillKalender,
@@ -52,6 +54,7 @@ import {
   strykForekomst,
 } from "@/lib/upprepning";
 import { addDagar, dygnMellan, nyckel, stampel, tolka } from "@/lib/tid";
+import { tolkaFangst, type Sort } from "@/lib/tolka";
 import type { Session } from "@supabase/supabase-js";
 import { MOLNET_FINNS, hamtaKlient } from "@/lib/supabase";
 import {
@@ -91,6 +94,15 @@ interface ButikVarde {
   sparaUppgift(u: Uppgift): void;
   vaxlaKlar(id: string): void;
   taBortUppgift(id: string): void;
+  /* --- anteckningar --- */
+  anteckningar: Anteckning[];
+  skapaAnteckning(utkast: Partial<Anteckning>): Anteckning;
+  sparaAnteckning(a: Anteckning): void;
+  taBortAnteckning(id: string): void;
+  vaxlaNalad(id: string): void;
+  /* --- fångst --- */
+  /** Tolkar en fri rad och skapar posten. Null om raden saknar titel. */
+  fanga(text: string): Fangad | null;
   angra(): void;
   gorOm(): void;
   tomKalendern(): void;
@@ -104,6 +116,14 @@ interface ButikVarde {
   stallDiagnos(): Promise<Diagnos>;
   loggaIn(epost: string, losenord: string): Promise<string | null>;
   loggaUt(): Promise<void>;
+}
+
+/** Vad fångsten blev, så att anroparen kan hoppa dit. */
+export interface Fangad {
+  sort: Sort;
+  id: string;
+  titel: string;
+  datum: Date | null;
 }
 
 const Sammanhang = createContext<ButikVarde | null>(null);
@@ -129,6 +149,7 @@ export default function ButikProvider({
     handelser: [],
     kalendrar: STANDARDKALENDRAR,
     uppgifter: [],
+    anteckningar: [],
   });
   const [laddad, setLaddad] = useState(false);
 
@@ -137,6 +158,10 @@ export default function ButikProvider({
   const handelser = useMemo(() => levande(data.handelser), [data.handelser]);
   const kalendrar = useMemo(() => levande(data.kalendrar), [data.kalendrar]);
   const uppgifter = useMemo(() => levande(data.uppgifter), [data.uppgifter]);
+  const anteckningar = useMemo(
+    () => levande(data.anteckningar),
+    [data.anteckningar]
+  );
 
   const historik = useRef<Ogonblick[]>([]);
   const framtid = useRef<Ogonblick[]>([]);
@@ -152,6 +177,7 @@ export default function ButikProvider({
         kalendrar:
           sparat.kalendrar.length > 0 ? sparat.kalendrar : STANDARDKALENDRAR,
         uppgifter: sparat.uppgifter,
+        anteckningar: sparat.anteckningar,
       });
     }
     // Utan sparat läge börjar kalendern tom. Ingen exempeldata sås:
@@ -276,6 +302,67 @@ export default function ButikProvider({
       andraUppgifter((lista) => lista.filter((u) => u.id !== id));
     },
     [andraUppgifter]
+  );
+
+  /**
+   * Tredje kopian av samma mekanik. Att bryta ut den till en generisk
+   * hjälpare hade sparat rader men krävt att typen bar både `id` och
+   * `Synkbar` genom tre lager generics — och den dagen någon behöver
+   * göra något olika för en av sorterna är delningen i vägen.
+   */
+  const andraAnteckningar = useCallback(
+    (f: (lista: Anteckning[]) => Anteckning[]) => {
+      andra((o) => {
+        const nya = f(o.anteckningar);
+        const tidpunkt = nu();
+        const fore = new Map(o.anteckningar.map((a) => [a.id, a]));
+        const kvar = nya.map((a) =>
+          fore.get(a.id) === a ? a : rord(a, tidpunkt)
+        );
+        const kvarIder = new Set(nya.map((a) => a.id));
+        const gravar = o.anteckningar
+          .filter((a) => !kvarIder.has(a.id) && !a.raderad)
+          .map((a) => gravsatt(a, tidpunkt));
+        return { ...o, anteckningar: [...kvar, ...gravar] };
+      });
+    },
+    [andra]
+  );
+
+  const skapaAnteckning = useCallback(
+    (utkast: Partial<Anteckning>) => {
+      const a = normaliseraAnteckning({ ...utkast, id: utkast.id ?? nyId() });
+      andraAnteckningar((lista) => [...lista, a]);
+      return a;
+    },
+    [andraAnteckningar]
+  );
+
+  const sparaAnteckning = useCallback(
+    (a: Anteckning) => {
+      andraAnteckningar((lista) =>
+        lista.some((x) => x.id === a.id)
+          ? lista.map((x) => (x.id === a.id ? normaliseraAnteckning(a) : x))
+          : [...lista, normaliseraAnteckning(a)]
+      );
+    },
+    [andraAnteckningar]
+  );
+
+  const taBortAnteckning = useCallback(
+    (id: string) => {
+      andraAnteckningar((lista) => lista.filter((a) => a.id !== id));
+    },
+    [andraAnteckningar]
+  );
+
+  const vaxlaNalad = useCallback(
+    (id: string) => {
+      andraAnteckningar((lista) =>
+        lista.map((a) => (a.id === id ? { ...a, nalad: !a.nalad } : a))
+      );
+    },
+    [andraAnteckningar]
   );
 
   const angra = useCallback(() => {
@@ -492,6 +579,59 @@ export default function ButikProvider({
     [handelser]
   );
 
+  /**
+   * Fångsten.
+   *
+   * En rad fri text in, en riktig post ut. Att den bor i butiken och
+   * inte i paletten är avsiktligt: fångsten skall gå att nå från vilken
+   * yta som helst — paletten, bottenraden, en framtida delningsmeny —
+   * och alla måste ge exakt samma resultat för samma text.
+   *
+   * En rad utan titel skapar ingenting. "imorgon" ensamt är ett datum,
+   * inte en anteckning om något, och en tom post i kalendern är värre
+   * än ingen post alls.
+   */
+  const fanga = useCallback(
+    (text: string): Fangad | null => {
+      const namn = kalendrar.map((k) => k.namn);
+      const f = tolkaFangst(text, namn);
+      const titel = f.titel.trim();
+      if (!titel) return null;
+
+      const standard = kalendrar[0]?.id ?? "arbete";
+      const kalenderId = f.kalenderNamn
+        ? (kalendrar.find(
+            (k) => k.namn.toLowerCase() === f.kalenderNamn!.toLowerCase()
+          )?.id ?? standard)
+        : standard;
+
+      if (f.sort === "handelse" && f.start && f.slut) {
+        const h = skapa({
+          titel,
+          start: f.start,
+          slut: f.slut,
+          heldag: f.heldag,
+          kalenderId,
+        });
+        return { sort: "handelse", id: h.id, titel, datum: tolka(h.start) };
+      }
+
+      const u = skapaUppgift({
+        titel,
+        prioritet: f.prioritet,
+        forfaller: f.forfaller,
+        kalenderId,
+      });
+      return {
+        sort: "uppgift",
+        id: u.id,
+        titel,
+        datum: f.forfaller ? tolka(f.forfaller) : null,
+      };
+    },
+    [kalendrar, skapa, skapaUppgift]
+  );
+
   /** Raderar allt innehåll. Går att ångra med ⌘Z, som allt annat. */
   const tomKalendern = useCallback(() => {
     andraHandelser(() => []);
@@ -570,17 +710,22 @@ export default function ButikProvider({
           nuvarande.uppgifter,
           resultat.data.uppgifter
         );
+        const anteckningar = sammanfoga(
+          nuvarande.anteckningar,
+          resultat.data.anteckningar
+        );
         // Sammanfogningen lämnar tillbaka samma referens när ingenting
         // skilde sig. Då skall tillståndet inte röras alls: annars ritas
         // hela kalendern om var trettionde sekund utan anledning.
         if (
           handelser === nuvarande.handelser &&
           kalendrar === nuvarande.kalendrar &&
-          uppgifter === nuvarande.uppgifter
+          uppgifter === nuvarande.uppgifter &&
+          anteckningar === nuvarande.anteckningar
         ) {
           return nuvarande;
         }
-        return { handelser, kalendrar, uppgifter };
+        return { handelser, kalendrar, uppgifter, anteckningar };
       });
       setSynkLage({
         tillstand: "vilande",
@@ -699,6 +844,26 @@ export default function ButikProvider({
         },
         knuff
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "uppgifter",
+          filter: `agare=eq.${anvandare}`,
+        },
+        knuff
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "anteckningar",
+          filter: `agare=eq.${anvandare}`,
+        },
+        knuff
+      )
       .subscribe();
 
     return () => {
@@ -790,6 +955,12 @@ export default function ButikProvider({
       sparaUppgift,
       vaxlaKlar,
       taBortUppgift,
+      anteckningar,
+      skapaAnteckning,
+      sparaAnteckning,
+      taBortAnteckning,
+      vaxlaNalad,
+      fanga,
       angra,
       gorOm,
       tomKalendern,
@@ -828,6 +999,12 @@ export default function ButikProvider({
       sparaUppgift,
       vaxlaKlar,
       taBortUppgift,
+      anteckningar,
+      skapaAnteckning,
+      sparaAnteckning,
+      taBortAnteckning,
+      vaxlaNalad,
+      fanga,
       angra,
       gorOm,
       tomKalendern,

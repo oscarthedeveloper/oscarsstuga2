@@ -25,6 +25,9 @@ import { useButik } from "./Butik";
 import { sorteraUppgifter } from "@/lib/butik";
 import { addDagar, kortDatum, nyckel, startAvDag, tolka } from "@/lib/tid";
 import { useMobil } from "@/lib/anvandMedia";
+import Kopplingar from "./Kopplingar";
+import type { Peka } from "./KalenderApp";
+import type { Mal } from "@/lib/kopplingar";
 
 /** Tre streck där de fyllda är styrkan. Läses utan färgseende. */
 function Styrka({ varde }: { varde: Prioritet }) {
@@ -51,9 +54,18 @@ function Styrka({ varde }: { varde: Prioritet }) {
 
 export default function AttGora({
   fokusera = 0,
+  oppna = null,
+  onOppnaMal,
+  onSkapaLank,
 }: {
   /** Räknare som ökar när något utifrån vill att fältet skall få fokus. */
   fokusera?: number;
+  /** Uppgift som skall fällas ut, t.ex. från en sökträff. */
+  oppna?: Peka | null;
+  /** En [[koppling]] pekade bort härifrån. Skalet äger navigeringen. */
+  onOppnaMal?(mal: Mal): void;
+  /** En [[koppling]] saknade mål och skall bli en ny anteckning. */
+  onSkapaLank?(titel: string): void;
 }) {
   const {
     uppgifter,
@@ -79,6 +91,22 @@ export default function AttGora({
   useEffect(() => {
     if (fokusera > 0) faltRef.current?.focus();
   }, [fokusera]);
+
+  /*
+   * En sökträff pekade hit. Utöver att fälla ut raden måste filtren
+   * släppas: träffen kan mycket väl ligga i en kalender som är bortfiltrerad
+   * eller vara avbockad, och att öppna en post som sedan inte syns är
+   * samma sak som att inte öppna den alls.
+   */
+  useEffect(() => {
+    if (!oppna) return;
+    const traff = uppgifter.find((u) => u.id === oppna.id);
+    if (!traff) return;
+    setOppen(oppna.id);
+    setFilter((f) => (f && f !== traff.kalenderId ? null : f));
+    if (traff.klar) setVisaKlara(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [oppna]);
 
   const valdKalender = kalenderId || kalendrar[0]?.id || "arbete";
   const idag = nyckel(startAvDag(new Date()));
@@ -226,6 +254,7 @@ export default function AttGora({
         {synliga.map((u) => (
           <UppgiftRad
             key={u.id}
+            markera={u.id === oppna?.id}
             uppgift={u}
             idag={idag}
             kalendernamn={kalenderFor(u.kalenderId).namn}
@@ -239,6 +268,8 @@ export default function AttGora({
               taBortUppgift(u.id);
             }}
             kalendrar={kalendrar}
+            onOppnaMal={onOppnaMal}
+            onSkapaLank={onSkapaLank}
           />
         ))}
       </div>
@@ -260,6 +291,7 @@ export default function AttGora({
 
 function UppgiftRad({
   uppgift,
+  markera,
   idag,
   kalendernamn,
   ton,
@@ -269,8 +301,12 @@ function UppgiftRad({
   onSpara,
   onTaBort,
   kalendrar,
+  onOppnaMal,
+  onSkapaLank,
 }: {
   uppgift: Uppgift;
+  /** Nyss öppnad utifrån — rulla fram den. */
+  markera?: boolean;
   idag: string;
   kalendernamn: string;
   ton: number;
@@ -280,12 +316,19 @@ function UppgiftRad({
   onSpara(u: Uppgift): void;
   onTaBort(): void;
   kalendrar: { id: string; namn: string; ton: number }[];
+  onOppnaMal?(mal: Mal): void;
+  onSkapaLank?(titel: string): void;
 }) {
   const forsenad = !uppgift.klar && !!uppgift.forfaller && uppgift.forfaller < idag;
   const idagsdags = uppgift.forfaller === idag;
+  const radRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (markera) radRef.current?.scrollIntoView({ block: "center" });
+  }, [markera]);
 
   return (
-    <div className="uppgift" data-klar={uppgift.klar ? "1" : "0"}>
+    <div ref={radRef} className="uppgift" data-klar={uppgift.klar ? "1" : "0"}>
       <div className="flex items-start gap-2.5 px-2.5 py-2">
         {/* Bocken. Fyrkantig, som allt annat. */}
         <button
@@ -346,6 +389,8 @@ function UppgiftRad({
           onSpara={onSpara}
           onTaBort={onTaBort}
           onStang={onOppna}
+          onOppnaMal={onOppnaMal}
+          onSkapaLank={onSkapaLank}
         />
       )}
     </div>
@@ -363,12 +408,16 @@ function UppgiftRedigering({
   onSpara,
   onTaBort,
   onStang,
+  onOppnaMal,
+  onSkapaLank,
 }: {
   uppgift: Uppgift;
   kalendrar: { id: string; namn: string; ton: number }[];
   onSpara(u: Uppgift): void;
   onTaBort(): void;
   onStang(): void;
+  onOppnaMal?(mal: Mal): void;
+  onSkapaLank?(titel: string): void;
 }) {
   const [form, setForm] = useState<Uppgift>(uppgift);
   const satt = (delar: Partial<Uppgift>) =>
@@ -462,10 +511,20 @@ function UppgiftRedigering({
       <textarea
         className="falt resize-none"
         rows={2}
-        placeholder="Anteckning"
+        placeholder="Anteckning — [[titel]] länkar till annat"
         value={form.anteckning}
         onChange={(e) => satt({ anteckning: e.target.value })}
       />
+
+      {onOppnaMal && (
+        <Kopplingar
+          id={uppgift.id}
+          titel={uppgift.titel}
+          text={form.anteckning}
+          onOppnaMal={onOppnaMal}
+          onSkapa={onSkapaLank}
+        />
+      )}
 
       <div className="flex items-center gap-2">
         <button type="button" className="knapp micro" onClick={onTaBort}>

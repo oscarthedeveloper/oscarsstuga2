@@ -20,6 +20,7 @@ import HandelsePanel from "../components/HandelsePanel";
 import Kommandopalett, { tolkaDatum } from "../components/Kommandopalett";
 import KalenderPanel from "../components/KalenderPanel";
 import AttGora from "../components/AttGora";
+import Anteckningar from "../components/Anteckningar";
 import { STANDARDKALENDRAR } from "../lib/butik";
 import { provdata } from "./provdata";
 import { expanderaAlla } from "../lib/upprepning";
@@ -174,10 +175,10 @@ prov("årsvyn ritar tolv månader", () => {
   if (dagar < 365) throw new Error(`för få dagsrutor: ${dagar}`);
 });
 
-prov("överlappande händelser får olika bredd", () => {
-  // Onsdagen i provdatan har både seminarium 09–10 och lunch 12–13,
-  // plus djupt arbete 13–17: inget av dem skall ligga på 100 % bredd
-  // om de krockar, och alla skall ligga på 100 % om de inte gör det.
+prov("överlappande händelser ritas som en trappa", () => {
+  // Uträkningen provas för sig i layout.test.ts. Här kontrolleras bara
+  // att vyn faktiskt SKRIVER ut inskjutet — ett block kan ha rätt
+  // layout och ändå ritas i vänsterkant om style-raden tappar bort den.
   const start = startAvVecka(IDAG);
   const html = renderToStaticMarkup(
     h(TidsRutnat, {
@@ -191,15 +192,33 @@ prov("överlappande händelser får olika bredd", () => {
       onSkapa: tomt,
     })
   );
-  const bredder = Array.from(html.matchAll(/width:calc\(([\d.]+)% - 2px\)/g)).map(
-    (m) => Number(m[1])
-  );
+  const vansterkanter = Array.from(
+    html.matchAll(/left:calc\(([\d.]+)% \+ 1px\)/g)
+  ).map((m) => Number(m[1]));
+  const bredder = Array.from(
+    html.matchAll(/width:calc\(([\d.]+)% - 2px\)/g)
+  ).map((m) => Number(m[1]));
+
   if (bredder.length === 0) throw new Error("inga block ritades");
   if (!bredder.some((b) => b > 99)) {
     throw new Error("inget block fick full bredd");
   }
-  if (!bredder.some((b) => b < 99)) {
-    throw new Error("inget block delades — överlappen räknades inte");
+  if (!vansterkanter.some((v) => v > 0)) {
+    throw new Error("inget block skjuts in — överlappen räknades inte");
+  }
+  // Trappan betyder att allt når högerkanten: vänster + bredd = 100.
+  for (let i = 0; i < bredder.length; i++) {
+    const summa = (vansterkanter[i] ?? 0) + bredder[i];
+    if (Math.abs(summa - 100) > 0.01) {
+      throw new Error(`block ${i} slutar vid ${summa}%, inte vid kanten`);
+    }
+  }
+  // Lagret måste följa med ut i märkspråket, annars staplas trappan fel.
+  if (!html.includes("--lager")) throw new Error("lagret skrevs inte ut");
+  // Och genomskinligheten måste märkas ut, annars döljer det översta
+  // blocket det under sig helt.
+  if (!html.includes('data-over="1"')) {
+    throw new Error("inget block märktes som täckande");
   }
 });
 
@@ -253,6 +272,7 @@ prov("redigeringspanelen ritar upprepningsreglerna", () => {
           heldag: false,
         },
         onStang: tomt,
+        onOppnaMal: tomt,
       })
     )
   );
@@ -284,19 +304,62 @@ prov("att göra ritar inmatning, filter och tomt läge", () => {
 });
 
 prov("paletten listar kommandon och tolkar datum", () => {
+  // Paletten läser numera butiken direkt — den söker i allt innehåll och
+  // skapar poster — och måste därför renderas inuti leverantören.
   const html = renderToStaticMarkup(
-    h(Kommandopalett, {
-      kommandon: [
-        { id: "a", namn: "Gå till idag", grupp: "Navigering", utfor: tomt },
-      ],
-      forekomster: [],
-      onGaTill: tomt,
-      onOppna: tomt,
-      onStang: tomt,
-    })
+    h(
+      ButikProvider,
+      null,
+      h(Kommandopalett, {
+        kommandon: [
+          { id: "a", namn: "Gå till idag", grupp: "Navigering", utfor: tomt },
+        ],
+        onGaTill: tomt,
+        onOppnaTraff: tomt,
+        onFangad: tomt,
+        onStang: tomt,
+      })
+    )
   );
   innehaller(html, "Gå till idag");
-  innehaller(html, "Sök kommando");
+  innehaller(html, "Skriv för att fånga");
+});
+
+prov("anteckningsvyn ritar lista och tomt läge", () => {
+  const html = renderToStaticMarkup(
+    h(ButikProvider, null, h(Anteckningar, { onOppnaMal: tomt }))
+  );
+  innehaller(html, "Sök i anteckningar");
+  for (const k of STANDARDKALENDRAR) innehaller(html, k.namn);
+  // Tomt lager: anvisningen skall stå där, inte en tom yta.
+  innehaller(html, "Inga anteckningar");
+});
+
+prov("mobilen kan bläddra, växla sida och nå paletten", () => {
+  /*
+   * Ritprovet ser DOM:en, inte bildskärmen, så det kan inte mäta om en
+   * knapp syns. Det det KAN slå fast är att kontrollerna över huvud
+   * taget finns i märkspråket — vilket är precis det som saknades:
+   * stegknapparna låg bara i navigeringsraden, längst från tummen, och
+   * palettknappen var helt bortgömd bakom `md:`.
+   */
+  const html = renderToStaticMarkup(h(ButikProvider, null, h(KalenderApp)));
+
+  // Bläddring inom tummens räckvidd, i bottenraden.
+  innehaller(html, 'aria-label="Föregående period"');
+  innehaller(html, 'aria-label="Nästa period"');
+
+  // Alla fem vyerna når man därifrån också.
+  for (const v of ["Dag", "Tre dagar", "Vecka", "Månad", "År"]) {
+    innehaller(html, `aria-label="${v}"`);
+  }
+
+  // Fångst och sök måste gå att nå utan tangentbord.
+  innehaller(html, 'aria-label="Fånga, sök eller styr"');
+
+  // Alla tre sidorna skall gå att växla mellan.
+  innehaller(html, "Anteckn.");
+  innehaller(html, "Att göra");
 });
 
 prov("datumtolkningen förstår svenska uttryck", () => {

@@ -23,6 +23,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
+  Anteckning,
   Handelse,
   Kalender,
   Prioritet,
@@ -33,6 +34,7 @@ import type {
 import {
   BYGGE,
   SUPABASE_VARD,
+  TABELL_ANTECKNINGAR,
   TABELL_HANDELSER,
   TABELL_KALENDRAR,
   TABELL_UPPGIFTER,
@@ -40,6 +42,7 @@ import {
 } from "./supabase";
 import {
   normalisera,
+  normaliseraAnteckning,
   normaliseraKalender,
   normaliseraUppgift,
   type Ogonblick,
@@ -266,6 +269,50 @@ function uppgiftFranRad(r: UppgiftRad): Uppgift {
   });
 }
 
+interface AnteckningRad {
+  agare: string;
+  id: string;
+  titel: string;
+  brodtext: string;
+  kalender_id: string;
+  datum: string | null;
+  nalad: boolean;
+  skapad: string;
+  andrad: string;
+  raderad: string | null;
+  synk_vid?: string;
+}
+
+function anteckningTillRad(a: Anteckning, agare: string): AnteckningRad {
+  return {
+    agare,
+    id: a.id,
+    titel: a.titel,
+    brodtext: a.brodtext,
+    kalender_id: a.kalenderId,
+    datum: a.datum,
+    nalad: a.nalad,
+    skapad: a.skapad,
+    andrad: a.andrad,
+    raderad: a.raderad,
+  };
+}
+
+function anteckningFranRad(r: AnteckningRad): Anteckning {
+  return normaliseraAnteckning({
+    id: r.id,
+    titel: r.titel ?? "",
+    brodtext: r.brodtext ?? "",
+    kalenderId: r.kalender_id,
+    datum: r.datum ?? null,
+    nalad: !!r.nalad,
+    skapad: r.skapad,
+    andrad: r.andrad,
+    raderad: r.raderad ?? null,
+    synkad: true,
+  });
+}
+
 /* ==================================================================
    SAMMANFOGNING
    ================================================================== */
@@ -359,7 +406,8 @@ export function antalIvag(o: Ogonblick): number {
   return (
     osynkade(o.handelser).length +
     osynkade(o.kalendrar).length +
-    osynkade(o.uppgifter).length
+    osynkade(o.uppgifter).length +
+    osynkade(o.anteckningar).length
   );
 }
 
@@ -406,7 +454,7 @@ export async function synka(
   };
 
   /* --- 1. Hämta allt som rört sig sedan förra körningen ------------ */
-  const [svarH, svarK, svarU] = await Promise.all([
+  const [svarH, svarK, svarU, svarA] = await Promise.all([
     klient
       .from(TABELL_HANDELSER)
       .select("*")
@@ -422,11 +470,17 @@ export async function synka(
       .select("*")
       .gt("synk_vid", franMarkor)
       .order("synk_vid", { ascending: true }),
+    klient
+      .from(TABELL_ANTECKNINGAR)
+      .select("*")
+      .gt("synk_vid", franMarkor)
+      .order("synk_vid", { ascending: true }),
   ]);
 
   if (svarH.error) throw new Error(oversattRadfel(svarH.error.message));
   if (svarK.error) throw new Error(oversattRadfel(svarK.error.message));
   if (svarU.error) throw new Error(oversattRadfel(svarU.error.message));
+  if (svarA.error) throw new Error(oversattRadfel(svarA.error.message));
 
   // Provraden från diagnosen bär ett internt id och hör inte hemma i
   // kalendern. Markören flyttas ändå av den, vilket är riktigt: den har
@@ -440,9 +494,13 @@ export async function synka(
   const fjarrU = ((svarU.data ?? []) as UppgiftRad[]).filter(
     (r) => !r.id.startsWith(INTERNT)
   );
+  const fjarrA = ((svarA.data ?? []) as AnteckningRad[]).filter(
+    (r) => !r.id.startsWith(INTERNT)
+  );
   for (const r of (svarH.data ?? []) as HandelseRad[]) senare(r.synk_vid);
   for (const r of (svarK.data ?? []) as KalenderRad[]) senare(r.synk_vid);
   for (const r of (svarU.data ?? []) as UppgiftRad[]) senare(r.synk_vid);
+  for (const r of (svarA.data ?? []) as AnteckningRad[]) senare(r.synk_vid);
   let data: Ogonblick = {
     handelser: sammanfoga(lokal.handelser, fjarrH.map(franRad)),
     kalendrar: sammanfogaKalendrar(
@@ -450,12 +508,17 @@ export async function synka(
       fjarrK.map(kalenderFranRad)
     ),
     uppgifter: sammanfoga(lokal.uppgifter, fjarrU.map(uppgiftFranRad)),
+    anteckningar: sammanfoga(
+      lokal.anteckningar,
+      fjarrA.map(anteckningFranRad)
+    ),
   };
 
   /* --- 2. Skjut upp det som molnet inte sett ----------------------- */
   const uppH = osynkade(data.handelser);
   const uppK = osynkade(data.kalendrar);
   const uppU = osynkade(data.uppgifter);
+  const uppA = osynkade(data.anteckningar);
 
   // Kalendrarna först: en händelse pekar på sin kalender, och den bör
   // finnas uppe innan händelsen gör det. Databasen har medvetet ingen
@@ -502,10 +565,24 @@ export async function synka(
     }
   }
 
+  if (uppA.length > 0) {
+    for (const klump of dela(uppA, 200)) {
+      const svar = await klient
+        .from(TABELL_ANTECKNINGAR)
+        .upsert(
+          klump.map((a) => anteckningTillRad(a, anvandarId)),
+          { onConflict: "agare,id" }
+        )
+        .select("id");
+      if (svar.error) throw new Error(oversattRadfel(svar.error.message));
+    }
+  }
+
   // Först när skrivningen gått igenom får posterna räknas som synkade.
   const uppH_ider = new Set(uppH.map((h) => h.id));
   const uppK_ider = new Set(uppK.map((k) => k.id));
   const uppU_ider = new Set(uppU.map((u) => u.id));
+  const uppA_ider = new Set(uppA.map((a) => a.id));
   data = {
     handelser: data.handelser.map((h) =>
       uppH_ider.has(h.id) ? { ...h, synkad: true } : h
@@ -516,6 +593,9 @@ export async function synka(
     uppgifter: data.uppgifter.map((u) =>
       uppU_ider.has(u.id) ? { ...u, synkad: true } : u
     ),
+    anteckningar: data.anteckningar.map((a) =>
+      uppA_ider.has(a.id) ? { ...a, synkad: true } : a
+    ),
   };
 
   skrivMarkor(anvandarId, nyMarkor);
@@ -523,8 +603,8 @@ export async function synka(
   return {
     data,
     markor: nyMarkor,
-    ner: fjarrH.length + fjarrK.length + fjarrU.length,
-    upp: uppH.length + uppK.length + uppU.length,
+    ner: fjarrH.length + fjarrK.length + fjarrU.length + fjarrA.length,
+    upp: uppH.length + uppK.length + uppU.length + uppA.length,
   };
 }
 

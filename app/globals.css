@@ -40,6 +40,10 @@
   --linje-hel: rgb(17 17 17 / 0.22);
   --linje-halv: rgb(17 17 17 / 0.09);
 
+  /* Hur täckt ett block som ligger ovanpå ett annat är. Resten släpper
+     igenom det undre blockets yta och text. */
+  --overlapp-tackning: 72%;
+
   /* Rutnätets mått — sätts om av vyn vid zoom. */
   --timhojd: 52px;
   --rannil: 58px;
@@ -71,6 +75,14 @@ body {
   overflow: hidden;
 }
 
+/* Krymp undan tangentbordet. Se useTangentbord i lib/anvandMedia.ts —
+   utan detta ligger bottenraden och skrivytans nederkant bakom det. */
+@media (max-width: 767px) {
+  .viewport-lock {
+    height: calc(100dvh - var(--tangentbord, 0px));
+  }
+}
+
 /* Ramen kring appen krymper till noll på mobilen — varje pixel av
    marginal är en pixel mindre kalender. */
 .appram {
@@ -82,9 +94,13 @@ body {
     padding: 0;
   }
 
+  /* Fyll skalet i stället för skärmen: skalet vet om tangentbordet.
+     min-height nollas — annars håller den emot när skalet krymper, och
+     hela vinsten äts upp av en spärr som skrevs för skrivbordet. */
   .appram > * {
     border: 0;
-    height: 100dvh;
+    height: 100%;
+    min-height: 0;
   }
 }
 
@@ -230,13 +246,26 @@ body {
   cursor: default;
 }
 
-.knapp-rad {
-  display: flex;
-}
+/*
+ * Knappgruppen ligger i komponentlagret, och det är inte kosmetik.
+ *
+ * Egna klasser som skrivs efter @tailwind utilities hamnar EFTER
+ * verktygsklasserna i utdatan, och vid samma specificitet vinner den
+ * som står sist. `.knapp-rad { display: flex }` slog därför ut `hidden`
+ * fullständigt: sid- och vyväxlaren i navigeringsraden bar `hidden
+ * md:flex` men syntes ändå på telefonen, dubblerade mot bottenraden.
+ * I @layer components sorteras regeln före verktygen, och `hidden`
+ * fungerar som det står.
+ */
+@layer components {
+  .knapp-rad {
+    display: flex;
+  }
 
-/* Sammanhängande knappgrupp: delade kanter, inga dubbla linjer. */
-.knapp-rad > .knapp + .knapp {
-  margin-left: -1px;
+  /* Sammanhängande knappgrupp: delade kanter, inga dubbla linjer. */
+  .knapp-rad > .knapp + .knapp {
+    margin-left: -1px;
+  }
 }
 
 /* ------------------------------------------------------------------
@@ -391,8 +420,15 @@ select.falt {
    ================================================================== */
 .handelse {
   position: absolute;
+  /* Trappan: den som börjar först ligger överst. Basen är låg nog att
+     :hover, [data-vald] och [data-dras] fortfarande kan lyfta blocket. */
+  z-index: calc(10 + var(--lager, 0));
   border: 1px solid var(--ink);
-  background: var(--kal-1);
+  /* Ytan och ribban går genom variabler så att genomskinligheten kan
+     räknas ut EN gång i stället för sex, en per ton. */
+  --yta: var(--kal-1);
+  --ribba: var(--kal-1-stark);
+  background: var(--yta);
   color: var(--ink);
   overflow: hidden;
   text-align: left;
@@ -409,19 +445,29 @@ select.falt {
   top: 0;
   bottom: 0;
   width: 3px;
-  background: var(--kal-1-stark);
+  background: var(--ribba);
 }
 
-.handelse[data-ton="1"] { background: var(--kal-2); }
-.handelse[data-ton="1"]::before { background: var(--kal-2-stark); }
-.handelse[data-ton="2"] { background: var(--kal-3); }
-.handelse[data-ton="2"]::before { background: var(--kal-3-stark); }
-.handelse[data-ton="3"] { background: var(--kal-4); }
-.handelse[data-ton="3"]::before { background: var(--kal-4-stark); }
-.handelse[data-ton="4"] { background: var(--kal-5); }
-.handelse[data-ton="4"]::before { background: var(--kal-5-stark); }
-.handelse[data-ton="5"] { background: var(--kal-6); }
-.handelse[data-ton="5"]::before { background: var(--kal-6-stark); }
+.handelse[data-ton="1"] { --yta: var(--kal-2); --ribba: var(--kal-2-stark); }
+.handelse[data-ton="2"] { --yta: var(--kal-3); --ribba: var(--kal-3-stark); }
+.handelse[data-ton="3"] { --yta: var(--kal-4); --ribba: var(--kal-4-stark); }
+.handelse[data-ton="4"] { --yta: var(--kal-5); --ribba: var(--kal-5-stark); }
+.handelse[data-ton="5"] { --yta: var(--kal-6); --ribba: var(--kal-6-stark); }
+
+/*
+ * Blocket som ligger ÖVER något släpper igenom det.
+ *
+ * Bara ytan tonas — ramen, färgribban och den egna texten står kvar helt
+ * täckande. Hade `opacity` använts på hela elementet hade även det
+ * översta mötets titel bleknat, och två svårlästa block är sämre än ett
+ * läsbart och ett skymt.
+ *
+ * Täckningen är en variabel för att gå att vrida på: högre värde ger
+ * skarpare toppblock och svagare genomlysning.
+ */
+.handelse[data-over="1"] {
+  background: color-mix(in srgb, var(--yta) var(--overlapp-tackning), transparent);
+}
 
 .handelse:hover {
   box-shadow: 0 2px 8px rgb(17 17 17 / 0.18);
@@ -759,6 +805,166 @@ select.falt {
 }
 
 /* ==================================================================
+   ANTECKNINGAR
+   Samma vokabulär som att göra-listan: 1px-ramar, inga rundade hörn,
+   accenten sparad till det som kräver uppmärksamhet.
+
+   Listan är en enda kolumn även på breda skärmar. Ett rutnät av kort
+   ser ordnat ut men tvingar ögat att söka i två riktningar, och en
+   anteckning har ingen naturlig storlek som gör kortet rättvisa.
+   ================================================================== */
+.anteckning {
+  border-bottom: 1px solid rgb(17 17 17 / 0.14);
+  transition: background-color 120ms linear;
+  width: 100%;
+  text-align: left;
+  display: block;
+}
+
+.anteckning:hover {
+  background: var(--panel);
+}
+
+.anteckning[data-nalad="1"] {
+  background: rgb(255 92 57 / 0.05);
+}
+
+.anteckning-titel {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 0.98rem;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+/* Två rader av brödtexten som förhandsbesked. Fler gör listan till en
+   vägg av text; färre säger inget om vad anteckningen handlar om. */
+.anteckning-utdrag {
+  font-size: 0.66rem;
+  line-height: 1.6;
+  opacity: 0.62;
+  margin-top: 0.2rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+/* Nålen: fylld när den är satt, annars bara kontur. */
+.nal {
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--ink);
+  background: var(--panel);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.66rem;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: background-color 120ms linear;
+}
+
+.nal[data-pa="1"] {
+  background: var(--accent);
+}
+
+.skrivyta {
+  border: 1px solid var(--ink);
+  background: var(--panel);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 0.78rem;
+  line-height: 1.75;
+  padding: 0.6rem 0.7rem;
+  width: 100%;
+  outline: none;
+  resize: none;
+  flex: 1;
+  min-height: 0;
+}
+
+.skrivyta:focus {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+@media (max-width: 767px) {
+  .anteckning-titel {
+    font-size: 1.02rem;
+  }
+
+  .anteckning-utdrag {
+    font-size: 0.72rem;
+  }
+
+  .nal {
+    width: 38px;
+    height: 38px;
+  }
+
+  /* Under 16px zoomar iOS in vid fokus och layouten hoppar. */
+  .skrivyta {
+    font-size: 16px;
+  }
+}
+
+/* ==================================================================
+   KOPPLINGAR
+   En länk skall se ut som en länk utan att låna färg från något annat
+   i systemet — accenten är redan upptagen av "detta kräver din
+   uppmärksamhet". Streckad underkant räcker och fungerar i gråskala.
+   ================================================================== */
+.lank {
+  border-bottom: 1px dashed rgb(17 17 17 / 0.5);
+  cursor: pointer;
+  padding-bottom: 1px;
+  transition: background-color 120ms linear;
+}
+
+.lank:hover {
+  background: var(--accent);
+  border-bottom-color: var(--ink);
+}
+
+/* En länk till något som inte finns är inte ett fel — man skriver ofta
+   länken innan posten. Den ritas som ett tomrum att fylla, inte som en
+   varning. */
+.lank[data-finns="0"] {
+  border-bottom-style: dotted;
+  opacity: 0.5;
+}
+
+.lank[data-finns="0"]:hover {
+  background: rgb(17 17 17 / 0.08);
+}
+
+/* Bakåtlänkarna: vad som pekar HIT. Listan är det som gör samlingen
+   till en väv i stället för tre register. */
+.baklank {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  padding: 0.3rem 0;
+  border-top: 1px solid rgb(17 17 17 / 0.1);
+  width: 100%;
+  text-align: left;
+  font-size: 0.68rem;
+  line-height: 1.4;
+  transition: opacity 120ms linear;
+}
+
+.baklank:hover {
+  opacity: 0.6;
+}
+
+@media (max-width: 767px) {
+  .baklank {
+    padding: 0.5rem 0;
+    font-size: 0.74rem;
+  }
+}
+
+/* ==================================================================
    SIDOPANEL
    ================================================================== */
 .sidopanel {
@@ -864,6 +1070,89 @@ select.falt {
   color: var(--paper);
 }
 
+.palett-lista {
+  max-height: 46vh;
+  overflow-y: auto;
+  padding-block: 0.25rem;
+}
+
+/* Gruppetiketten är en skylt, inte en rad: den går inte att markera och
+   skall inte konkurrera med innehållet om uppmärksamheten. */
+.palett-grupp {
+  font-size: 0.52rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 500;
+  opacity: 0.4;
+  padding: 0.5rem 0.85rem 0.15rem;
+}
+
+.palett-rad:first-child .palett-grupp,
+.palett-grupp:first-child {
+  padding-top: 0.25rem;
+}
+
+/* Andra raden — utdrag ur brödtexten eller fångstens kvitto. */
+.palett-under {
+  display: block;
+  font-size: 0.55rem;
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+  opacity: 0.6;
+  margin-top: 0.15rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Sortmärket: H, U eller A i en liten ruta. En bokstav i stället för en
+   färg, av samma skäl som styrkan i att göra-listan ritas som streck. */
+.palett-marke {
+  flex-shrink: 0;
+  width: 13px;
+  height: 13px;
+  border: 1px solid currentColor;
+  font-size: 0.5rem;
+  line-height: 11px;
+  text-align: center;
+  opacity: 0.65;
+  font-weight: 500;
+}
+
+/* Fångstraden är den enda i paletten som SKAPAR något. Accentkanten är
+   där för att skilja "detta lägger till" från "detta öppnar". */
+.palett-rad[data-fangst="1"] {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.palett-rad[data-fangst="1"] .palett-under {
+  opacity: 0.75;
+}
+
+@media (max-width: 767px) {
+  /*
+   * Med tangentbordet uppe är den synliga ytan ungefär halva skärmen,
+   * och vh vet ingenting om det. Listan hålls därför kortare än vad
+   * höjden tycks tillåta — annars hamnar de nedersta träffarna, och
+   * ibland hela fotraden, bakom tangentbordet.
+   */
+  .palett-lista {
+    max-height: 42vh;
+  }
+
+  /* Fingerstora rader. Paletten är den yta man använder mest på
+     telefonen, och en rad man missar öppnar fel post. */
+  .palett-rad {
+    padding: 0.6rem 0.85rem;
+    font-size: 0.78rem;
+    min-height: 44px;
+  }
+
+  .palett-under {
+    font-size: 0.6rem;
+  }
+}
+
 /* ==================================================================
    PANEL FÖR HÄNDELSEREDIGERING
    ================================================================== */
@@ -962,6 +1251,40 @@ select.falt {
   min-height: 42px;
 }
 
+/* Vyraden bär bara bokstäver och behöver inte full höjd. Varje pixel
+   här är en pixel mindre rutnät. */
+.bottenrad-vyer button {
+  min-height: 32px;
+}
+
+/* Fångstkvittot lägger sig ovanför bottenraden, aldrig över den:
+   navigeringen får inte försvinna för att man skrev något. */
+.fangstkvitto {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 96;
+  display: flex;
+  justify-content: center;
+  padding: 0 0.5rem 0.5rem;
+  pointer-events: none;
+}
+
+.fangstkvitto > * {
+  pointer-events: auto;
+  box-shadow: 0 8px 24px rgb(17 17 17 / 0.3);
+}
+
+@media (max-width: 767px) {
+  .fangstkvitto {
+    /* Ovanför bottenraden, vars höjd beror på vilken sida man står på.
+       Skalet sätter --bottenrad; nollan är för säkerhets skull. */
+    bottom: calc(var(--bottenrad, 42px) + env(safe-area-inset-bottom, 0px));
+    padding-bottom: 0;
+  }
+}
+
 /* Redigeringspanelerna blir bottenark på smala skärmar. Ett ark som
    börjar en bit ned lämnar kvar en remsa av kalendern, så att man ser
    var man är. */
@@ -976,9 +1299,11 @@ select.falt {
     top: auto;
     left: 0;
     right: 0;
-    bottom: 0;
+    /* Lyft arket ovanför tangentbordet — annars ligger Spara-knappen
+       bakom det, vilket är den enda knapp arket finns för. */
+    bottom: var(--tangentbord, 0px);
     width: 100%;
-    max-height: 92dvh;
+    max-height: calc(92dvh - var(--tangentbord, 0px));
     border-left: 0;
     border-top: 1px solid var(--ink);
     box-shadow: 0 -12px 34px rgb(17 17 17 / 0.22);
@@ -989,8 +1314,11 @@ select.falt {
     width: 96vw;
   }
 
+  /* position: fixed räknar mot layoutrutan, som inte krymper av
+     tangentbordet. Botten lyfts därför för hand. */
   .palett-overlay {
-    padding-top: 8vh;
+    padding-top: 6vh;
+    bottom: var(--tangentbord, 0px);
   }
 
   /* Fält under 16px får iOS att zooma in vid fokus. Det gör att hela

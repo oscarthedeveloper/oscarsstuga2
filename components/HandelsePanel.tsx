@@ -22,6 +22,8 @@ import type {
 } from "@/lib/typer";
 import { TON_NAMN } from "@/lib/typer";
 import { useButik } from "./Butik";
+import Kopplingar from "./Kopplingar";
+import type { Mal } from "@/lib/kopplingar";
 import {
   STANDARD_UPPREPNING,
   beskrivUpprepning,
@@ -52,12 +54,18 @@ export interface PanelProps {
   /** Utkast för en ny händelse. */
   utkast: Partial<Handelse> | null;
   onStang(): void;
+  /** En [[koppling]] pekade bort härifrån. Skalet äger navigeringen. */
+  onOppnaMal(mal: Mal): void;
+  /** En [[koppling]] saknade mål och skall bli en ny anteckning. */
+  onSkapaLank?(titel: string): void;
 }
 
 export default function HandelsePanel({
   forekomst,
   utkast,
   onStang,
+  onOppnaMal,
+  onSkapaLank,
 }: PanelProps) {
   const { kalendrar, sparaHandelse, radera, skapa } = useButik();
   const titelRef = useRef<HTMLInputElement | null>(null);
@@ -553,8 +561,19 @@ export default function HandelsePanel({
               rows={4}
               value={form.anteckning}
               onChange={(e) => satt({ anteckning: e.target.value })}
+              placeholder="Skriv [[titel]] för att länka till en anteckning, en uppgift eller en annan händelse."
             />
           </label>
+
+          {/* Samma kopplingsruta som anteckningarna har. En händelse som
+              nämns i en anteckning skall kunna hitta tillbaka dit. */}
+          <Kopplingar
+            id={form.id}
+            titel={form.titel}
+            text={form.anteckning}
+            onOppnaMal={onOppnaMal}
+            onSkapa={onSkapaLank}
+          />
 
           {forekomst && (
             <p className="pico opacity-45 leading-relaxed">

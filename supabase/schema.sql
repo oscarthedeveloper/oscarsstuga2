@@ -146,6 +146,61 @@ create policy "egna uppgifter"
   with check (agare = auth.uid());
 
 -- -------------------------------------------------------------------
+-- ANTECKNINGAR
+--
+-- Det tredje benet. Händelsen äger en plats i tiden, uppgiften en
+-- avsikt, anteckningen det man vet.
+--
+-- `datum` är DATE och frivilligt. Är det satt hör anteckningen till en
+-- bestämd dag — dagboken — och är det null hör den till ett ämne. Två
+-- sorters anteckningar, en tabell: skillnaden ÄR att fältet är satt, och
+-- att dela upp dem i två tabeller hade betytt två kopior av all synk för
+-- att uttrycka det.
+--
+-- `brodtext` är text utan längdgräns med flit. Ett tak här är ett tak på
+-- vad som får tänkas, och Postgres bryr sig inte.
+--
+-- Kopplingarna [[så här]] ligger i brödtexten och har medvetet INGEN
+-- egen tabell. En länktabell skulle behöva hållas i takt med texten vid
+-- varje tangenttryckning, på varje enhet, även offline — och den dagen
+-- de går isär är det tabellen som ljuger. Länkarna räknas i stället ut
+-- ur texten när de behövs; texten är alltid sanningen.
+-- -------------------------------------------------------------------
+create table if not exists public.anteckningar (
+  agare        uuid        not null default auth.uid()
+                           references auth.users (id) on delete cascade,
+  id           text        not null,
+  titel        text        not null default '',
+  brodtext     text        not null default '',
+  kalender_id  text        not null,
+  datum        date,
+  nalad        boolean     not null default false,
+  skapad       timestamptz not null default now(),
+  andrad       timestamptz not null,
+  raderad      timestamptz,
+  synk_vid     timestamptz not null default now(),
+  primary key (agare, id)
+);
+
+drop trigger if exists synk_vid_anteckningar on public.anteckningar;
+create trigger synk_vid_anteckningar
+  before insert or update on public.anteckningar
+  for each row execute function public.satt_synk_vid();
+
+create index if not exists anteckningar_synk_idx
+  on public.anteckningar (agare, synk_vid);
+
+alter table public.anteckningar enable row level security;
+
+drop policy if exists "egna anteckningar" on public.anteckningar;
+create policy "egna anteckningar"
+  on public.anteckningar
+  for all
+  to authenticated
+  using (agare = auth.uid())
+  with check (agare = auth.uid());
+
+-- -------------------------------------------------------------------
 -- INDEX
 -- Varje synkrunda frågar "vad har hänt sedan X, för mig". Utan det här
 -- indexet blir det en full tabellgenomgång vid varje appstart.
@@ -206,6 +261,8 @@ as $$
     where raderad is not null and raderad < now() - interval '90 days';
   delete from public.uppgifter
     where raderad is not null and raderad < now() - interval '90 days';
+  delete from public.anteckningar
+    where raderad is not null and raderad < now() - interval '90 days';
 $$;
 
 -- ===================================================================
@@ -260,6 +317,15 @@ begin
       and tablename = 'uppgifter'
   ) then
     alter publication supabase_realtime add table public.uppgifter;
+  end if;
+
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'anteckningar'
+  ) then
+    alter publication supabase_realtime add table public.anteckningar;
   end if;
 end
 $$;

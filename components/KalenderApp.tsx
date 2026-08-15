@@ -26,7 +26,11 @@ import KalenderPanel from "./KalenderPanel";
 import Kommandopalett, { type Kommando } from "./Kommandopalett";
 import KontoPanel, { HamtaKnapp, KontoKnapp, MolnRemsa } from "./Konto";
 import AttGora from "./AttGora";
-import { useMobil } from "@/lib/anvandMedia";
+import Anteckningar from "./Anteckningar";
+import type { Traff } from "@/lib/sok";
+import type { Mal } from "@/lib/kopplingar";
+import type { Fangad } from "./Butik";
+import { useMobil, useTangentbord } from "@/lib/anvandMedia";
 import {
   addDagar,
   addManader,
@@ -34,6 +38,7 @@ import {
   dagsspann,
   isoVecka,
   klam,
+  kortDatum,
   langtDatum,
   MANADER,
   startAvAr,
@@ -41,10 +46,22 @@ import {
   startAvManad,
   startAvVecka,
   stampel,
+  tolka,
 } from "@/lib/tid";
 
 const TIMHOJD_MIN = 26;
 const TIMHOJD_MAX = 110;
+
+type Sida = "kalender" | "attgora" | "anteckningar";
+
+/** En begäran om att öppna en post. `n` gör varje begäran unik. */
+export interface Peka {
+  id: string;
+  n: number;
+}
+
+/** Hur länge fångstkvittot ligger kvar innan det tonar bort. */
+const KVITTO_MS = 6000;
 
 export default function KalenderApp() {
   const butik = useButik();
@@ -66,11 +83,36 @@ export default function KalenderApp() {
    * det ett vylägesbyte och inte en egen adress. Skalet, panelerna och
    * det pågående tillståndet överlever bytet.
    */
-  const [sida, setSida] = useState<"kalender" | "attgora">("kalender");
+  const [sida, setSida] = useState<Sida>("kalender");
+  /*
+   * Post som en sökträff eller en länk pekat ut, att öppna på sin sida.
+   *
+   * Räknaren `n` finns för att samma post skall gå att öppna två gånger.
+   * Med bara ett id blir andra försöket en tilldelning av det värde som
+   * redan står där, React ser ingen ändring, och sökningen gör tyst
+   * ingenting — vilket ser ut precis som en trasig sökfunktion.
+   */
+  const [oppnaUppgift, setOppnaUppgift] = useState<Peka | null>(null);
+  const [oppnaAnteckning, setOppnaAnteckning] = useState<Peka | null>(null);
+  const pekning = useRef(0);
+  const pekaPa = useCallback((id: string): Peka => {
+    pekning.current += 1;
+    return { id, n: pekning.current };
+  }, []);
+  /*
+   * Kvittot efter en fångst.
+   *
+   * Fångsten skall inte flytta vyn. Skriver man in tre saker i rad mitt
+   * i en veckoplanering är det planeringen man tittar på, och att kastas
+   * till en annan dag för varje rad gör funktionen obrukbar. Remsan säger
+   * i stället vad som hände och erbjuder resan — den som vill går dit.
+   */
+  const [kvitto, setKvitto] = useState<Fangad | null>(null);
   /* Bottenradens plusknapp kan inte nå textfältet inne i AttGora. Den
      räknar upp en signal i stället, och fältet tar fokus när den ändras. */
   const [fokusera, setFokusera] = useState(0);
   const mobil = useMobil();
+  useTangentbord();
 
   /*
    * Första gången appen öppnas i ett bygge som HAR molnnycklar men saknar
@@ -169,6 +211,82 @@ export default function KalenderApp() {
 
   const gaTillIdag = useCallback(() => setPeka(startAvDag(new Date())), []);
 
+  /* ---------------------------------------------------------------
+     Svep i sidled — bläddra en period
+
+     Knappar räcker inte på en telefon. Att bläddra en vecka är den
+     vanligaste handlingen i en kalender, och den skall inte kräva att
+     man siktar på en knapp: fingret drar åt vänster och nästa vecka
+     kommer. Steget följer vyn, precis som pilarna gör.
+
+     Gesten läses PÅ SLÄPPET och inget preventDefault sker under vägen.
+     Det är avgörande: hade rörelsen fångats medan den pågick skulle
+     rutnätets lodräta rullning dö, och rullningen är det man gör
+     oftast. Här är svepet en tolkning i efterhand av en rörelse
+     webbläsaren redan skött.
+     --------------------------------------------------------------- */
+  const svep = useRef<{ x: number; y: number; tid: number } | null>(null);
+
+  /** Minsta vågräta sträcka som räknas som ett svep. */
+  const SVEP_MIN = 60;
+
+  const svepStart = useCallback(
+    (e: React.TouchEvent) => {
+      // Blocken äger sina egna gester: långtryck armerar och drar dem.
+      const mal = e.target as HTMLElement | null;
+      if (
+        e.touches.length !== 1 ||
+        sida !== "kalender" ||
+        document.body.classList.contains("drar-pagar") ||
+        mal?.closest(".handelse, .heldag-block, .grepp, .nyritning")
+      ) {
+        svep.current = null;
+        return;
+      }
+      const t = e.touches[0];
+      svep.current = { x: t.clientX, y: t.clientY, tid: Date.now() };
+    },
+    [sida]
+  );
+
+  const svepSlut = useCallback(
+    (e: React.TouchEvent) => {
+      const start = svep.current;
+      svep.current = null;
+      if (!start || document.body.classList.contains("drar-pagar")) return;
+
+      const t = e.changedTouches[0];
+      if (!t) return;
+      const dx = t.clientX - start.x;
+      const dy = t.clientY - start.y;
+
+      // Vågrätt måste vinna tydligt över lodrätt, annars blir varje
+      // snedställd rullning ett veckohopp.
+      if (Math.abs(dx) < SVEP_MIN || Math.abs(dx) < Math.abs(dy) * 1.6) return;
+      if (Date.now() - start.tid > 800) return;
+
+      // Svep åt vänster för framåt — innehållet drar med fingret.
+      stega(dx < 0 ? 1 : -1);
+
+      /*
+       * Släppet kan annars också bli ett klick på det som råkade ligga
+       * under fingret när det stannade. Ett enda klick sväljs, en gång,
+       * i fångstfasen — utan detta öppnar ett svep över årsvyn en dag
+       * man aldrig siktade på.
+       */
+      const svalj = (klick: Event) => {
+        klick.preventDefault();
+        klick.stopPropagation();
+      };
+      window.addEventListener("click", svalj, { capture: true, once: true });
+      window.setTimeout(
+        () => window.removeEventListener("click", svalj, { capture: true }),
+        400
+      );
+    },
+    [stega]
+  );
+
   const gaTillDag = useCallback((d: Date) => setPeka(startAvDag(d)), []);
 
   const oppnaDag = useCallback((d: Date) => {
@@ -182,6 +300,91 @@ export default function KalenderApp() {
   const oppnaHandelse = useCallback((f: Forekomst) => {
     setVald(f.nyckel);
     setRedigerar({ forekomst: f, utkast: null });
+  }, []);
+
+  /**
+   * Öppnar en händelse man bara känner till id och dag för.
+   *
+   * Vyerna ritar FÖREKOMSTER, inte händelser, så panelen behöver en
+   * sådan. Den räknas fram genom att expandera just den här händelsen
+   * över ett litet fönster kring dagen — billigare än att leta i hela
+   * den expanderade listan, och fungerar även när träffen ligger utanför
+   * det fönster vyn råkar visa just nu.
+   */
+  const oppnaHandelseVid = useCallback(
+    (handelseId: string, dag: Date | null) => {
+      const h = butik.handelser.find((x) => x.id === handelseId);
+      if (!h) return;
+      const d = startAvDag(dag ?? tolka(h.start));
+      setSida("kalender");
+      setPeka(d);
+      setVy("dag");
+      const traffar = expanderaAlla([h], addDagar(d, -1), addDagar(d, 2));
+      const f = traffar[0];
+      if (!f) return;
+      const ton = butik.kalenderFor(h.kalenderId).ton;
+      setVald(f.nyckel);
+      setRedigerar({ forekomst: { ...f, ton }, utkast: null });
+    },
+    [butik]
+  );
+
+  /** En sökträff — kan ligga på vilken av de tre sidorna som helst. */
+  const oppnaTraff = useCallback(
+    (t: Traff) => {
+      if (t.slag === "handelse") {
+        oppnaHandelseVid(t.id, t.datum);
+      } else if (t.slag === "uppgift") {
+        setSida("attgora");
+        setOppnaUppgift(pekaPa(t.id));
+      } else {
+        setSida("anteckningar");
+        setOppnaAnteckning(pekaPa(t.id));
+      }
+    },
+    [oppnaHandelseVid, pekaPa]
+  );
+
+  /** Målet för en [[koppling]]. Samma resa, annan startpunkt. */
+  const oppnaMal = useCallback(
+    (mal: Mal) => {
+      if (mal.slag === "handelse") {
+        oppnaHandelseVid(mal.id, null);
+      } else if (mal.slag === "uppgift") {
+        setSida("attgora");
+        setOppnaUppgift(pekaPa(mal.id));
+      } else {
+        setSida("anteckningar");
+        setOppnaAnteckning(pekaPa(mal.id));
+      }
+    },
+    [oppnaHandelseVid, pekaPa]
+  );
+
+  /**
+   * Skapar anteckningen en [[länk]] pekade på men som inte fanns.
+   *
+   * Utan den här vägen fungerar svävande länkar bara inifrån
+   * anteckningsvyn, och löftet att kopplingarna är desamma överallt är
+   * inte sant: skriver man [[kvartalsrapporten]] i ett mötes anteckning
+   * blir chipset en död knapp i stället för en väg framåt.
+   */
+  const skapaLankadAnteckning = useCallback(
+    (titel: string) => {
+      const a = butik.skapaAnteckning({
+        titel,
+        kalenderId: butik.kalendrar[0]?.id ?? "arbete",
+      });
+      setRedigerar(null);
+      setSida("anteckningar");
+      setOppnaAnteckning(pekaPa(a.id));
+    },
+    [butik, pekaPa]
+  );
+
+  const nyAnteckning = useCallback(() => {
+    setSida("anteckningar");
+    setFokusera((n) => n + 1);
   }, []);
 
   const nyHandelse = useCallback(
@@ -225,6 +428,14 @@ export default function KalenderApp() {
     },
     [butik]
   );
+
+  /* Kvittot tonar bort av sig själv. Ett meddelande man måste stänga är
+     ett meddelande till, inte ett mindre. */
+  useEffect(() => {
+    if (!kvitto) return;
+    const id = window.setTimeout(() => setKvitto(null), KVITTO_MS);
+    return () => window.clearTimeout(id);
+  }, [kvitto]);
 
   /* ---------------------------------------------------------------
      Tangentbord
@@ -303,6 +514,18 @@ export default function KalenderApp() {
         utfor: () => setSida("attgora"),
       },
       {
+        id: "sida-anteckningar",
+        namn: "Visa anteckningar",
+        grupp: "Sidor",
+        utfor: () => setSida("anteckningar"),
+      },
+      {
+        id: "ny-anteckning",
+        namn: "Ny anteckning",
+        grupp: "Anteckningar",
+        utfor: nyAnteckning,
+      },
+      {
         id: "hamta-om",
         namn: "Hämta om allt från molnet",
         grupp: "Molnet",
@@ -362,7 +585,7 @@ export default function KalenderApp() {
         },
       },
     ],
-    [butik, gaTillIdag, nyHandelse, stega]
+    [butik, gaTillIdag, nyAnteckning, nyHandelse, stega]
   );
 
   const redigerarRef = useRef(redigerar);
@@ -406,7 +629,7 @@ export default function KalenderApp() {
       // att bläddra i. Att låta tangenterna verka i bakgrunden vore ett
       // sätt att hamna någon helt annanstans utan att förstå varför.
       if (sidaRef.current !== "kalender") {
-        // N betyder "nytt" på båda sidorna — bara olika sorts nytt.
+        // N betyder "nytt" på alla tre sidorna — bara olika sorts nytt.
         if (e.key === "n" || e.key === "N") {
           e.preventDefault();
           setFokusera((n) => n + 1);
@@ -512,7 +735,14 @@ export default function KalenderApp() {
      Ritning
      --------------------------------------------------------------- */
   return (
-    <main className="viewport-lock appram">
+    <main
+      className="viewport-lock appram"
+      /* Bottenraden är två våningar på kalendersidan och en på de andra.
+         Kvittot måste lägga sig ovanför den, och kan inte gissa. */
+      style={{
+        ["--bottenrad" as string]: sida === "kalender" ? "74px" : "42px",
+      }}
+    >
       <div className="border border-ink flex flex-col h-[calc(100dvh-2.4vw)] min-h-[420px] overflow-hidden bg-paper">
         {/* Säger rakt ut när ingenting synkas. Två tysta lägen — bygge
             utan nycklar, och enhet utan inloggning — ser annars ut precis
@@ -541,9 +771,13 @@ export default function KalenderApp() {
 
             {sida === "kalender" && (
               <div className="knapp-rad shrink-0">
+                {/* Pilarna göms på telefonen. De ligger kvar i
+                    bottenraden, inom tummens räckvidd, och två uppsättningar
+                    av samma knapp här uppe åt bara bredd från rubriken —
+                    som är det enda som säger var i tiden man befinner sig. */}
                 <button
                   type="button"
-                  className="knapp micro"
+                  className="knapp micro hidden md:block"
                   onClick={() => stega(-1)}
                   aria-label="Föregående"
                 >
@@ -558,7 +792,7 @@ export default function KalenderApp() {
                 </button>
                 <button
                   type="button"
-                  className="knapp micro"
+                  className="knapp micro hidden md:block"
                   onClick={() => stega(1)}
                   aria-label="Nästa"
                 >
@@ -569,12 +803,22 @@ export default function KalenderApp() {
 
             <div className="min-w-0">
               <h1 className="display text-[0.98rem] md:text-[1.1rem] leading-none truncate">
-                {sida === "kalender" ? rubrik : "Att göra"}
+                {sida === "kalender"
+                  ? rubrik
+                  : sida === "attgora"
+                    ? "Att göra"
+                    : "Anteckningar"}
               </h1>
               <p className="pico opacity-60 truncate">
                 {sida === "kalender"
                   ? underrubrik
-                  : `${kvarAttGora} ${kvarAttGora === 1 ? "kvar" : "kvar"}`}
+                  : sida === "attgora"
+                    ? `${kvarAttGora} kvar`
+                    : `${butik.anteckningar.length} ${
+                        butik.anteckningar.length === 1
+                          ? "anteckning"
+                          : "anteckningar"
+                      }`}
               </p>
             </div>
           </div>
@@ -602,6 +846,14 @@ export default function KalenderApp() {
                   <span className="tabnum"> {kvarAttGora}</span>
                 )}
               </button>
+              <button
+                type="button"
+                className="knapp micro"
+                data-aktiv={sida === "anteckningar" ? "1" : "0"}
+                onClick={() => setSida("anteckningar")}
+              >
+                Anteckningar
+              </button>
             </div>
 
             <div className="knapp-rad hidden md:flex">
@@ -623,13 +875,19 @@ export default function KalenderApp() {
             <HamtaKnapp />
             <KontoKnapp onOppna={() => setKonto(true)} />
 
+            {/* Paletten är fångstens och sökets enda ingång, och därmed
+                det viktigaste appen har. Att gömma knappen bakom md:
+                gjorde båda oåtkomliga på en telefon — där man oftast har
+                en tanke att fånga och minst tålamod att leta. */}
             <button
               type="button"
-              className="knapp micro hidden md:block"
+              className="knapp micro"
               onClick={() => setPalett(true)}
-              title="Kommandopalett (⌘K)"
+              title="Fånga, sök eller styr (⌘K)"
+              aria-label="Fånga, sök eller styr"
             >
-              ⌘K
+              <span className="hidden md:inline">⌘K</span>
+              <span className="md:hidden">⌕</span>
             </button>
           </div>
         </nav>
@@ -686,9 +944,27 @@ export default function KalenderApp() {
             </>
           )}
 
-          <section className="flex-1 min-w-0 min-h-0 bg-paper relative">
-            {sida === "attgora" ? (
-              <AttGora fokusera={fokusera} />
+          <section
+            className="flex-1 min-w-0 min-h-0 bg-paper relative"
+            onTouchStart={svepStart}
+            onTouchEnd={svepSlut}
+            onTouchCancel={() => {
+              svep.current = null;
+            }}
+          >
+            {sida === "anteckningar" ? (
+              <Anteckningar
+                fokusera={fokusera}
+                oppna={oppnaAnteckning}
+                onOppnaMal={oppnaMal}
+              />
+            ) : sida === "attgora" ? (
+              <AttGora
+                fokusera={fokusera}
+                oppna={oppnaUppgift}
+                onOppnaMal={oppnaMal}
+                onSkapaLank={skapaLankadAnteckning}
+              />
             ) : (
             <>
             {/* Anvisning för den tomma kalendern. Den ligger ovanpå rutnätet
@@ -756,74 +1032,97 @@ export default function KalenderApp() {
         </div>
 
         {/* Bottenraden — bara på mobilen. Vyväxlaren hör hemma där tummen
-            når, inte uppe i ett hörn. */}
+            når, inte uppe i ett hörn.
+
+            Två våningar på kalendersidan, och det är ett medvetet köp av
+            höjd. Med tre sidor räckte en rad inte till: fem vyer plus tre
+            sidor plus en nyknapp blir nio träffytor på en telefonbredd,
+            och nio knappar i rad är noll knappar man träffar. Vyraden är
+            därför smalare — den bär bara bokstäver — och sidraden ligger
+            underst där tummen vilar. */}
         <div className="md:hidden bottenrad shrink-0 sakeromrade-botten">
+          {sida === "kalender" && (
+            <div className="flex items-stretch bottenrad-vyer">
+              {/* Pilarna flankerar vyväxlaren, och det är hela idén: de
+                  läser som "föregående/nästa" kring "vilken period", och
+                  steget följer automatiskt vyn man står i — en dag i
+                  dagsvyn, ett år i årsvyn. Här nere når tummen dem också,
+                  vilket den aldrig gjorde uppe i navigeringsraden. */}
+              <button
+                type="button"
+                className="knapp pico !px-3 shrink-0 !border-x-0 !border-t-0"
+                onClick={() => stega(-1)}
+                aria-label="Föregående period"
+              >
+                ‹
+              </button>
+              {VYER.map((v) => (
+                <button
+                  key={v.id}
+                  type="button"
+                  className="knapp pico flex-1 !border-x-0 !border-t-0"
+                  data-aktiv={vy === v.id ? "1" : "0"}
+                  onClick={() => setVy(v.id)}
+                  aria-label={v.namn}
+                >
+                  {v.kort}
+                </button>
+              ))}
+              <button
+                type="button"
+                className="knapp pico !px-3 shrink-0 !border-x-0 !border-t-0"
+                onClick={() => stega(1)}
+                aria-label="Nästa period"
+              >
+                ›
+              </button>
+            </div>
+          )}
+
           <div className="flex items-stretch">
-            {sida === "kalender" ? (
-              <>
-                {VYER.map((v) => (
-                  <button
-                    key={v.id}
-                    type="button"
-                    className="knapp pico flex-1 !border-y-0 !border-l-0"
-                    data-aktiv={vy === v.id ? "1" : "0"}
-                    onClick={() => setVy(v.id)}
-                    aria-label={v.namn}
-                  >
-                    {v.kort}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  className="knapp pico flex-1 !border-y-0"
-                  onClick={() => setSida("attgora")}
-                >
-                  Att göra
-                  {kvarAttGora > 0 && (
-                    <span className="tabnum"> {kvarAttGora}</span>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  className="knapp pico px-4 !border-y-0 !border-r-0"
-                  data-ton="accent"
-                  onClick={() => nyHandelse()}
-                  aria-label="Ny händelse"
-                >
-                  +
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  className="knapp pico flex-1 !border-y-0 !border-l-0"
-                  onClick={() => setSida("kalender")}
-                >
-                  Kalender
-                </button>
-                <button
-                  type="button"
-                  className="knapp pico flex-1 !border-y-0"
-                  data-aktiv="1"
-                  onClick={() => setSida("attgora")}
-                >
-                  Att göra
-                  {kvarAttGora > 0 && (
-                    <span className="tabnum"> {kvarAttGora}</span>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  className="knapp pico px-4 !border-y-0 !border-r-0"
-                  data-ton="accent"
-                  onClick={() => setFokusera((n) => n + 1)}
-                  aria-label="Ny uppgift"
-                >
-                  +
-                </button>
-              </>
-            )}
+            <button
+              type="button"
+              className="knapp pico flex-1 !border-y-0 !border-l-0"
+              data-aktiv={sida === "kalender" ? "1" : "0"}
+              onClick={() => setSida("kalender")}
+            >
+              Kalender
+            </button>
+            <button
+              type="button"
+              className="knapp pico flex-1 !border-y-0"
+              data-aktiv={sida === "attgora" ? "1" : "0"}
+              onClick={() => setSida("attgora")}
+            >
+              Att göra
+              {kvarAttGora > 0 && <span className="tabnum"> {kvarAttGora}</span>}
+            </button>
+            <button
+              type="button"
+              className="knapp pico flex-1 !border-y-0"
+              data-aktiv={sida === "anteckningar" ? "1" : "0"}
+              onClick={() => setSida("anteckningar")}
+            >
+              Anteckn.
+            </button>
+            <button
+              type="button"
+              className="knapp pico px-4 !border-y-0 !border-r-0"
+              data-ton="accent"
+              onClick={() => {
+                if (sida === "kalender") nyHandelse();
+                else setFokusera((n) => n + 1);
+              }}
+              aria-label={
+                sida === "kalender"
+                  ? "Ny händelse"
+                  : sida === "attgora"
+                    ? "Ny uppgift"
+                    : "Ny anteckning"
+              }
+            >
+              +
+            </button>
           </div>
         </div>
 
@@ -834,8 +1133,10 @@ export default function KalenderApp() {
           <ColophonStrip
             centre={
               sida === "kalender"
-                ? "1 · 2 · 3 · 4 · 5 växlar vy — N ny — T idag — ⌘K palett"
-                : "⌘K palett — klicka en rad för att redigera"
+                ? "1 · 2 · 3 · 4 · 5 växlar vy — N ny — T idag — ⌘K fånga & sök"
+                : sida === "attgora"
+                  ? "⌘K fånga & sök — N nytt — klicka en rad för att redigera"
+                  : "⌘K fånga & sök — N ny — [[titel]] länkar till annat"
             }
           />
         </div>
@@ -846,6 +1147,11 @@ export default function KalenderApp() {
           forekomst={redigerar.forekomst}
           utkast={redigerar.utkast}
           onStang={() => setRedigerar(null)}
+          onOppnaMal={(mal) => {
+            setRedigerar(null);
+            oppnaMal(mal);
+          }}
+          onSkapaLank={skapaLankadAnteckning}
         />
       )}
 
@@ -858,10 +1164,26 @@ export default function KalenderApp() {
       {palett && (
         <Kommandopalett
           kommandon={kommandon}
-          forekomster={forekomster}
           onGaTill={gaTillDag}
-          onOppna={oppnaHandelse}
+          onOppnaTraff={oppnaTraff}
+          onFangad={setKvitto}
           onStang={() => setPalett(false)}
+        />
+      )}
+
+      {kvitto && (
+        <FangstKvitto
+          fangad={kvitto}
+          onGa={() => {
+            if (kvitto.sort === "handelse") {
+              oppnaHandelseVid(kvitto.id, kvitto.datum);
+            } else {
+              setSida("attgora");
+              setOppnaUppgift(pekaPa(kvitto.id));
+            }
+            setKvitto(null);
+          }}
+          onStang={() => setKvitto(null)}
         />
       )}
 
@@ -875,6 +1197,62 @@ export default function KalenderApp() {
         />
       )}
     </main>
+  );
+}
+
+/**
+ * Kvittot efter en fångst.
+ *
+ * Remsan finns för att fångsten annars är osynlig: man skriver en rad,
+ * paletten stängs, och ingenting på skärmen ändrar sig — posten hamnade
+ * på en annan dag eller en annan sida. Utan kvitto blir det första man
+ * gör att leta rätt på den för att kontrollera att den kom fram, och då
+ * har snabbheten inte tjänat någonting.
+ *
+ * Den ligger ovanför bottenraden på telefonen så att den inte skymmer
+ * navigeringen, och försvinner av sig själv.
+ */
+function FangstKvitto({
+  fangad,
+  onGa,
+  onStang,
+}: {
+  fangad: Fangad;
+  onGa(): void;
+  onStang(): void;
+}) {
+  return (
+    <div className="fangstkvitto sakeromrade-botten">
+      <div className="bg-ink text-paper border border-ink flex items-center gap-2 px-2.5 py-1.5 max-w-[92vw]">
+        {/* Sortordet är det första som får gå när bredden tryter: att
+            posten skapades och NÄR den ligger är viktigare än vilken av
+            de två sorterna det blev. */}
+        <span className="pico opacity-70 shrink-0 hidden sm:inline">
+          {fangad.sort === "handelse" ? "Händelse" : "Uppgift"}
+        </span>
+        <span className="micro truncate normal-case">{fangad.titel}</span>
+        {fangad.datum && (
+          <span className="pico opacity-70 shrink-0 tabnum">
+            {kortDatum(fangad.datum)}
+          </span>
+        )}
+        <button
+          type="button"
+          className="knapp pico shrink-0 !bg-transparent !text-paper !border-paper/40"
+          onClick={onGa}
+        >
+          Visa
+        </button>
+        <button
+          type="button"
+          className="knapp pico shrink-0 !bg-transparent !text-paper !border-paper/40"
+          onClick={onStang}
+          aria-label="Stäng"
+        >
+          ✕
+        </button>
+      </div>
+    </div>
   );
 }
 

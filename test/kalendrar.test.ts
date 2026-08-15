@@ -49,6 +49,7 @@ const kal = (id: string, namn: string, ton = 0): Kalender =>
 function bas(): Ogonblick {
   return {
     uppgifter: [],
+    anteckningar: [],
     kalendrar: [kal("a", "Arbete", 3), kal("s", "Studier", 0)],
     handelser: [
       normalisera({
@@ -167,6 +168,7 @@ prov("ingen händelse blir kvar med en kalender som inte finns", () => {
 prov("den sista kalendern går inte att ta bort", () => {
   const en: Ogonblick = {
     uppgifter: [],
+    anteckningar: [],
     kalendrar: [kal("a", "Arbete")],
     handelser: bas().handelser.slice(0, 1),
   };
