@@ -194,6 +194,36 @@ export const PRIORITETER: {
 /** Hur långt en ändring av en serie skall slå. */
 export type Rackvidd = "denna" | "framat" | "alla";
 
+/**
+ * En sida under Annat.
+ *
+ * Avdelningen finns för det som inte går att pressa in i EN kategori: en
+ * väg till läkarprogrammet är varken en händelse, en uppgift eller en
+ * anteckning, utan lite av varje sett ur ett bestämt perspektiv.
+ *
+ * Varje sida ritas av en EGEN komponent med egen utformning, eftersom
+ * innehållet är olika i grunden — ett block­system hade gjort alla sidor
+ * lika, vilket är precis motsatsen till poängen. Registret i
+ * `components/sidor/register.tsx` kopplar id till komponent.
+ *
+ * `id` ÄR registernyckeln, inte ett slumpat id. Det ger en trevlig
+ * egenskap gratis: två enheter som öppnar sidan var för sig skapar
+ * samma post, och sammanfogningen blir en vanlig senaste-vinner i
+ * stället för två dubbletter man får städa för hand.
+ *
+ * `data` ägs av sidans komponent, inte av lagret. Lagret vet bara att
+ * det är JSON, och sidan tolkar den själv — se `tolkaHpData` för hur en
+ * sida läser gammal eller trasig data utan att krascha.
+ */
+export interface Sida extends Synkbar {
+  id: string;
+  data: SidData;
+  skapad: string;
+}
+
+/** Sidans eget innehåll. Måste vara serialiserbart, i övrigt fritt. */
+export type SidData = Record<string, unknown>;
+
 export interface Layout {
   /** 0–1, andel av kolumnbredden. */
   vanster: number;

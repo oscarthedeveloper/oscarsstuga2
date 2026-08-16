@@ -50,6 +50,7 @@ function bas(): Ogonblick {
   return {
     uppgifter: [],
     anteckningar: [],
+    sidor: [],
     kalendrar: [kal("a", "Arbete", 3), kal("s", "Studier", 0)],
     handelser: [
       normalisera({
@@ -169,6 +170,7 @@ prov("den sista kalendern går inte att ta bort", () => {
   const en: Ogonblick = {
     uppgifter: [],
     anteckningar: [],
+    sidor: [],
     kalendrar: [kal("a", "Arbete")],
     handelser: bas().handelser.slice(0, 1),
   };

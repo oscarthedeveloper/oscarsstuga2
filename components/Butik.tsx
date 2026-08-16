@@ -23,6 +23,8 @@ import {
 import type {
   Anteckning,
   Forekomst,
+  SidData,
+  Sida,
   Handelse,
   Kalender,
   Rackvidd,
@@ -34,6 +36,7 @@ import {
   STANDARDKALENDRAR,
   andraKalender,
   normaliseraAnteckning,
+  normaliseraSida,
   gravsatt,
   klamTon,
   laggTillKalender,
@@ -100,6 +103,12 @@ interface ButikVarde {
   sparaAnteckning(a: Anteckning): void;
   taBortAnteckning(id: string): void;
   vaxlaNalad(id: string): void;
+  /* --- sidor under Annat --- */
+  sidor: Sida[];
+  /** Sidan med det id:t, eller null om den aldrig fyllts i. */
+  sidaMed(id: string): Sida | null;
+  /** Skriver sidans innehåll. Posten skapas första gången den sparas. */
+  sparaSida(id: string, data: SidData): void;
   /* --- fångst --- */
   /** Tolkar en fri rad och skapar posten. Null om raden saknar titel. */
   fanga(text: string): Fangad | null;
@@ -150,6 +159,7 @@ export default function ButikProvider({
     kalendrar: STANDARDKALENDRAR,
     uppgifter: [],
     anteckningar: [],
+    sidor: [],
   });
   const [laddad, setLaddad] = useState(false);
 
@@ -162,6 +172,7 @@ export default function ButikProvider({
     () => levande(data.anteckningar),
     [data.anteckningar]
   );
+  const sidor = useMemo(() => levande(data.sidor), [data.sidor]);
 
   const historik = useRef<Ogonblick[]>([]);
   const framtid = useRef<Ogonblick[]>([]);
@@ -178,6 +189,7 @@ export default function ButikProvider({
           sparat.kalendrar.length > 0 ? sparat.kalendrar : STANDARDKALENDRAR,
         uppgifter: sparat.uppgifter,
         anteckningar: sparat.anteckningar,
+        sidor: sparat.sidor,
       });
     }
     // Utan sparat läge börjar kalendern tom. Ingen exempeldata sås:
@@ -363,6 +375,43 @@ export default function ButikProvider({
       );
     },
     [andraAnteckningar]
+  );
+
+  /**
+   * Sidorna under Annat.
+   *
+   * Ingen egen `andraSidor`: en sida skrivs alltid hel, aldrig i en
+   * lista som kan växa och krympa, så gravstenslogiken har ingenting
+   * att göra här. Det enda som behövs är stämplingen — och den får
+   * aldrig glömmas bort, annars blir sidan kvar på enheten.
+   */
+  const sparaSida = useCallback(
+    (id: string, sidData: SidData) => {
+      andra((o) => {
+        const tidpunkt = nu();
+        const fanns = o.sidor.some((x) => x.id === id);
+        const post = rord(
+          normaliseraSida({
+            id,
+            data: sidData,
+            skapad: o.sidor.find((x) => x.id === id)?.skapad,
+          }),
+          tidpunkt
+        );
+        return {
+          ...o,
+          sidor: fanns
+            ? o.sidor.map((x) => (x.id === id ? post : x))
+            : [...o.sidor, post],
+        };
+      });
+    },
+    [andra]
+  );
+
+  const sidaMed = useCallback(
+    (id: string) => sidor.find((x) => x.id === id) ?? null,
+    [sidor]
   );
 
   const angra = useCallback(() => {
@@ -714,6 +763,7 @@ export default function ButikProvider({
           nuvarande.anteckningar,
           resultat.data.anteckningar
         );
+        const sidor = sammanfoga(nuvarande.sidor, resultat.data.sidor);
         // Sammanfogningen lämnar tillbaka samma referens när ingenting
         // skilde sig. Då skall tillståndet inte röras alls: annars ritas
         // hela kalendern om var trettionde sekund utan anledning.
@@ -721,11 +771,12 @@ export default function ButikProvider({
           handelser === nuvarande.handelser &&
           kalendrar === nuvarande.kalendrar &&
           uppgifter === nuvarande.uppgifter &&
-          anteckningar === nuvarande.anteckningar
+          anteckningar === nuvarande.anteckningar &&
+          sidor === nuvarande.sidor
         ) {
           return nuvarande;
         }
-        return { handelser, kalendrar, uppgifter, anteckningar };
+        return { handelser, kalendrar, uppgifter, anteckningar, sidor };
       });
       setSynkLage({
         tillstand: "vilande",
@@ -864,6 +915,16 @@ export default function ButikProvider({
         },
         knuff
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "sidor",
+          filter: `agare=eq.${anvandare}`,
+        },
+        knuff
+      )
       .subscribe();
 
     return () => {
@@ -960,6 +1021,9 @@ export default function ButikProvider({
       sparaAnteckning,
       taBortAnteckning,
       vaxlaNalad,
+      sidor,
+      sidaMed,
+      sparaSida,
       fanga,
       angra,
       gorOm,
@@ -1004,6 +1068,9 @@ export default function ButikProvider({
       sparaAnteckning,
       taBortAnteckning,
       vaxlaNalad,
+      sidor,
+      sidaMed,
+      sparaSida,
       fanga,
       angra,
       gorOm,

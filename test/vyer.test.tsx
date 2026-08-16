@@ -21,6 +21,8 @@ import Kommandopalett, { tolkaDatum } from "../components/Kommandopalett";
 import KalenderPanel from "../components/KalenderPanel";
 import AttGora from "../components/AttGora";
 import Anteckningar from "../components/Anteckningar";
+import Annat from "../components/Annat";
+import { SIDOR } from "../components/sidor/register";
 import { STANDARDKALENDRAR } from "../lib/butik";
 import { provdata } from "./provdata";
 import { expanderaAlla } from "../lib/upprepning";
@@ -335,6 +337,42 @@ prov("anteckningsvyn ritar lista och tomt läge", () => {
   innehaller(html, "Inga anteckningar");
 });
 
+prov("annat-avdelningen ritar listan och första sidan", () => {
+  const html = renderToStaticMarkup(h(ButikProvider, null, h(Annat)));
+  // Sidorna kommer ur registret, inte ur lagret: de finns i listan även
+  // innan de fyllts i.
+  for (const s of SIDOR) {
+    innehaller(html, s.titel);
+    innehaller(html, s.beskrivning);
+  }
+});
+
+prov("högskoleprovssidan ritar sina avsnitt utan data", () => {
+  const html = renderToStaticMarkup(
+    h(ButikProvider, null, h(Annat, { oppnaId: "hogskoleprov" }))
+  );
+  for (const rubrik of [
+    "Avstånd till målet",
+    "Resultat över tid",
+    "Delpoäng per provdel",
+    "Antagningspoäng",
+    "Viktiga datum",
+  ]) {
+    innehaller(html, rubrik);
+  }
+  /*
+   * Ingenting sås med siffror. Varje avsnitt skall stå tomt och be om
+   * indata i stället för att visa ett påhittat värde — en föråldrad
+   * antagningspoäng som ser ut som en sanning är sämre än ett tomt fält.
+   */
+  innehaller(html, "Inga lärosäten tillagda");
+  innehaller(html, "Inga provtillfällen inlagda");
+  innehaller(html, "Inga datum inlagda");
+  // Delpoängen går inte att fylla i utan ett provtillfälle att fylla i
+  // dem för, och avsnittet säger det i stället för att rita tomma fält.
+  innehaller(html, "Lägg till ett provtillfälle ovan");
+});
+
 prov("mobilen kan bläddra, växla sida och nå paletten", () => {
   /*
    * Ritprovet ser DOM:en, inte bildskärmen, så det kan inte mäta om en
@@ -357,9 +395,10 @@ prov("mobilen kan bläddra, växla sida och nå paletten", () => {
   // Fångst och sök måste gå att nå utan tangentbord.
   innehaller(html, 'aria-label="Fånga, sök eller styr"');
 
-  // Alla tre sidorna skall gå att växla mellan.
+  // Alla fyra sidorna skall gå att växla mellan.
   innehaller(html, "Anteckn.");
   innehaller(html, "Att göra");
+  innehaller(html, "Annat");
 });
 
 prov("datumtolkningen förstår svenska uttryck", () => {

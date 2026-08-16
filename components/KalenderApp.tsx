@@ -27,6 +27,8 @@ import Kommandopalett, { type Kommando } from "./Kommandopalett";
 import KontoPanel, { HamtaKnapp, KontoKnapp, MolnRemsa } from "./Konto";
 import AttGora from "./AttGora";
 import Anteckningar from "./Anteckningar";
+import Annat from "./Annat";
+import { SIDOR } from "./sidor/register";
 import type { Traff } from "@/lib/sok";
 import type { Mal } from "@/lib/kopplingar";
 import type { Fangad } from "./Butik";
@@ -52,7 +54,7 @@ import {
 const TIMHOJD_MIN = 26;
 const TIMHOJD_MAX = 110;
 
-type Sida = "kalender" | "attgora" | "anteckningar";
+type Sida = "kalender" | "attgora" | "anteckningar" | "annat";
 
 /** En begäran om att öppna en post. `n` gör varje begäran unik. */
 export interface Peka {
@@ -94,6 +96,7 @@ export default function KalenderApp() {
    */
   const [oppnaUppgift, setOppnaUppgift] = useState<Peka | null>(null);
   const [oppnaAnteckning, setOppnaAnteckning] = useState<Peka | null>(null);
+  const [oppnaAnnat, setOppnaAnnat] = useState<string | null>(null);
   const pekning = useRef(0);
   const pekaPa = useCallback((id: string): Peka => {
     pekning.current += 1;
@@ -526,6 +529,23 @@ export default function KalenderApp() {
         utfor: nyAnteckning,
       },
       {
+        id: "sida-annat",
+        namn: "Visa annat",
+        grupp: "Sidor",
+        utfor: () => setSida("annat"),
+      },
+      // Varje sida under Annat får en egen väg in. Med bara en handfull
+      // sidor är listan kort, och paletten är den snabbaste vägen dit.
+      ...SIDOR.map((x) => ({
+        id: `annat-${x.id}`,
+        namn: `Öppna ${x.titel}`,
+        grupp: "Annat",
+        utfor: () => {
+          setSida("annat");
+          setOppnaAnnat(x.id);
+        },
+      })),
+      {
         id: "hamta-om",
         namn: "Hämta om allt från molnet",
         grupp: "Molnet",
@@ -807,18 +827,22 @@ export default function KalenderApp() {
                   ? rubrik
                   : sida === "attgora"
                     ? "Att göra"
-                    : "Anteckningar"}
+                    : sida === "anteckningar"
+                      ? "Anteckningar"
+                      : "Annat"}
               </h1>
               <p className="pico opacity-60 truncate">
                 {sida === "kalender"
                   ? underrubrik
                   : sida === "attgora"
                     ? `${kvarAttGora} kvar`
-                    : `${butik.anteckningar.length} ${
-                        butik.anteckningar.length === 1
-                          ? "anteckning"
-                          : "anteckningar"
-                      }`}
+                    : sida === "anteckningar"
+                      ? `${butik.anteckningar.length} ${
+                          butik.anteckningar.length === 1
+                            ? "anteckning"
+                            : "anteckningar"
+                        }`
+                      : `${SIDOR.length} ${SIDOR.length === 1 ? "sida" : "sidor"}`}
               </p>
             </div>
           </div>
@@ -853,6 +877,14 @@ export default function KalenderApp() {
                 onClick={() => setSida("anteckningar")}
               >
                 Anteckningar
+              </button>
+              <button
+                type="button"
+                className="knapp micro"
+                data-aktiv={sida === "annat" ? "1" : "0"}
+                onClick={() => setSida("annat")}
+              >
+                Annat
               </button>
             </div>
 
@@ -952,7 +984,9 @@ export default function KalenderApp() {
               svep.current = null;
             }}
           >
-            {sida === "anteckningar" ? (
+            {sida === "annat" ? (
+              <Annat oppnaId={oppnaAnnat} />
+            ) : sida === "anteckningar" ? (
               <Anteckningar
                 fokusera={fokusera}
                 oppna={oppnaAnteckning}
@@ -1107,22 +1141,35 @@ export default function KalenderApp() {
             </button>
             <button
               type="button"
-              className="knapp pico px-4 !border-y-0 !border-r-0"
-              data-ton="accent"
-              onClick={() => {
-                if (sida === "kalender") nyHandelse();
-                else setFokusera((n) => n + 1);
-              }}
-              aria-label={
-                sida === "kalender"
-                  ? "Ny händelse"
-                  : sida === "attgora"
-                    ? "Ny uppgift"
-                    : "Ny anteckning"
-              }
+              className="knapp pico flex-1 !border-y-0"
+              data-aktiv={sida === "annat" ? "1" : "0"}
+              onClick={() => setSida("annat")}
             >
-              +
+              Annat
             </button>
+            {/* Nyknappen göms under Annat. Sidorna där kommer ur registret
+                och skapas i koden, så det finns ingenting att lägga till —
+                och en plusknapp som inte gör något är värre än ingen. */}
+            {sida !== "annat" && (
+              <button
+                type="button"
+                className="knapp pico px-4 !border-y-0 !border-r-0"
+                data-ton="accent"
+                onClick={() => {
+                  if (sida === "kalender") nyHandelse();
+                  else setFokusera((n) => n + 1);
+                }}
+                aria-label={
+                  sida === "kalender"
+                    ? "Ny händelse"
+                    : sida === "attgora"
+                      ? "Ny uppgift"
+                      : "Ny anteckning"
+                }
+              >
+                +
+              </button>
+            )}
           </div>
         </div>
 
@@ -1136,7 +1183,9 @@ export default function KalenderApp() {
                 ? "1 · 2 · 3 · 4 · 5 växlar vy — N ny — T idag — ⌘K fånga & sök"
                 : sida === "attgora"
                   ? "⌘K fånga & sök — N nytt — klicka en rad för att redigera"
-                  : "⌘K fånga & sök — N ny — [[titel]] länkar till annat"
+                  : sida === "anteckningar"
+                    ? "⌘K fånga & sök — N ny — [[titel]] länkar till annat"
+                    : "⌘K fånga & sök — sidorna sparas medan du skriver"
             }
           />
         </div>

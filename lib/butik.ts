@@ -15,6 +15,8 @@ import type {
   Handelse,
   Kalender,
   Prioritet,
+  SidData,
+  Sida,
   Synkbar,
   Uppgift,
 } from "./typer";
@@ -26,6 +28,7 @@ export interface Ogonblick {
   kalendrar: Kalender[];
   uppgifter: Uppgift[];
   anteckningar: Anteckning[];
+  sidor: Sida[];
 }
 
 export interface Lager {
@@ -88,6 +91,7 @@ export class LokaltLager implements Lager {
         kalendrar: data.kalendrar.map(normaliseraKalender),
         uppgifter: (data.uppgifter ?? []).map(normaliseraUppgift),
         anteckningar: (data.anteckningar ?? []).map(normaliseraAnteckning),
+        sidor: (data.sidor ?? []).map(normaliseraSida),
       });
     } catch {
       return null;
@@ -132,6 +136,7 @@ export function stadaGravstenar(o: Ogonblick, idag = new Date()): Ogonblick {
     kalendrar: o.kalendrar.filter(lever),
     uppgifter: o.uppgifter.filter(lever),
     anteckningar: o.anteckningar.filter(lever),
+    sidor: o.sidor.filter(lever),
   };
 }
 
@@ -204,6 +209,24 @@ export function normaliseraAnteckning(a: Partial<Anteckning>): Anteckning {
     andrad: a.andrad ?? a.skapad ?? nu(),
     raderad: a.raderad ?? null,
     synkad: a.synkad ?? false,
+  };
+}
+
+export function normaliseraSida(x: Partial<Sida>): Sida {
+  // Data måste vara ett objekt. Kommer det tillbaka som null, en array
+  // eller en sträng från ett äldre bygge är det inte ett fel värt att
+  // krascha på — sidan skall öppnas tom och gå att fylla i på nytt.
+  const rimlig =
+    x.data && typeof x.data === "object" && !Array.isArray(x.data)
+      ? (x.data as SidData)
+      : {};
+  return {
+    id: x.id ?? nyId(),
+    data: rimlig,
+    skapad: x.skapad ?? nu(),
+    andrad: x.andrad ?? x.skapad ?? nu(),
+    raderad: x.raderad ?? null,
+    synkad: x.synkad ?? false,
   };
 }
 
@@ -342,6 +365,8 @@ export function taBortKalender(
     handelser: o.handelser.map(flyttaEller),
     uppgifter: o.uppgifter.map(flyttaEller),
     anteckningar: o.anteckningar.map(flyttaEller),
+    // Sidorna hör inte till någon kalender och berörs inte.
+    sidor: o.sidor,
   };
 }
 

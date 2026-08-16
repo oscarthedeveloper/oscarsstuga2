@@ -65,3 +65,4 @@ export const TABELL_HANDELSER = "handelser";
 export const TABELL_KALENDRAR = "kalendrar";
 export const TABELL_UPPGIFTER = "uppgifter";
 export const TABELL_ANTECKNINGAR = "anteckningar";
+export const TABELL_SIDOR = "sidor";

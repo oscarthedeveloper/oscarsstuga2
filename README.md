@@ -1,6 +1,7 @@
 # Kalendariet
 
-En kalender, en att göra-lista och ett anteckningsblock i samma app —
+En kalender, en att göra-lista, ett anteckningsblock och en avdelning för
+allt annat — i samma app —
 byggt i Next.js. Fem vyer, dragbara händelser, fullständiga
 upprepningsregler, fångst av fri text, sök tvärs över allt och
 `[[kopplingar]]` mellan posterna. Offline först: allt fungerar utan nät
@@ -13,8 +14,8 @@ hörnparenteser och kolofonremsor. Inga rundade hörn, ingen grotesk.
 ```
 npm install
 npm run dev      # http://localhost:3000
-npm test         # 161 prov: upprepningar, kalendrar, uppgifter, layout,
-                 #            tolk, sök, kopplingar, synk, vyer
+npm test         # 198 prov: upprepningar, kalendrar, uppgifter, layout,
+                 #            tolk, sök, kopplingar, högskoleprov, synk, vyer
 npm run typecheck
 ```
 
@@ -195,12 +196,100 @@ Titeln är identiteten, inte id:t. Priset är att en omdöpt post tappar sina
 inlänkar — men en länk med ett id i vore oläsbar för människan som skriver
 den, och då är det inte längre en anteckning.
 
+## Annat
+
+Avdelningen för det som inte går att pressa in i **en** kategori. En väg
+till läkarprogrammet är varken en händelse, en uppgift eller en
+anteckning utan lite av varje, sett ur ett bestämt perspektiv.
+
+Varje sida ritas av en **egen komponent med egen utformning**. Det är ett
+medvetet val framför ett blocksystem: sidorna är olika i grunden, och ett
+system som kunde uttrycka dem alla hade gjort dem lika — vilket är precis
+motsatsen till poängen. Alla sidor hänger däremot i **samma kompakta
+lista** till vänster, och delar avsnittsram, etiketter och sifferstil.
+
+Att lägga till en sida är en rad i `components/sidor/register.tsx` och en
+komponent bredvid.
+
+```
+lib/sidor/hogskoleprov.ts        uträkningarna, utan React
+components/sidor/register.tsx    id → komponent
+components/sidor/Hogskoleprov.tsx
+components/sidor/block/          delade byggstenar
+  Avsnitt.tsx                    ram och etikett
+  Rader.tsx                      redigerbar lista
+  Serie.tsx                      talserie som SVG
+  Nedrakning.tsx                 datum med dygn kvar
+  Jamforelse.tsx                 krävs / du har / skillnad
+```
+
+Sidans **innehåll** är däremot data. Det ligger i `sidor`-tabellen som
+JSONB, synkas som allt annat, och tolkas av sidan själv. Registernyckeln
+är också postens id — två enheter som öppnar samma sida skapar därför
+samma rad, och krocken löses av den vanliga senaste-vinner-regeln i
+stället för att bli två dubbletter att städa för hand.
+
+Priset för JSONB är att databasen inte kan kontrollera innehållet. Det
+bärs på klientsidan: `tolkaHpData` tar emot `unknown` och lämnar alltid
+tillbaka något ritbart. En sida som kastar för att ett fält bytt namn är
+en sida man har tappat.
+
+### Högskoleprov och läkarprogrammet
+
+Byggd kring **en** fråga: räcker min poäng? Därför ligger avståndet
+överst och inte kurvan — kurvan säger hur det har gått, avståndet vad som
+återstår.
+
+- **Avstånd till målet** mot varje lärosäte och mot ett eget mål.
+  Jämförelsen sker mot din **bästa** poäng, inte din senaste: ett sämre
+  omprov tar inte bort ett bra.
+- **Resultat över tid** som en trappa, med en växlare till **Delprov
+  jämförda**: där är x-axeln de åtta delproven och färgen provtillfället,
+  så att man läser vågrätt — "min DTK har gått från en tredjedel till två
+  tredjedelar, men ORD står stilla". Hade varje delprov fått en egen kurva
+  över tid skulle jämförelsen mellan delar kräva åtta diagram i huvudet
+  samtidigt. Färgen bär inte informationen ensam: teckenförklaringen
+  skriver ut varje termin, och råpoängen står i tabellen nedanför.
+  Ett inlagt provtillfälle utan normering är ett kommande prov, inte ett
+  tapp, och drar aldrig ned kurvan.
+- **Delpoäng per provdel** för alla åtta delproven. Den svagaste delen
+  mäts i **andel av delens maxpoäng**, inte i råpoäng: NOG har tolv
+  uppgifter och DTK tjugofyra, så sex rätt betyder helt olika saker i de
+  två, och en jämförelse i råpoäng pekar ut fel del att öva på varje gång.
+- **Antagningspoäng** och **viktiga datum** i höger spalt. Vänster spalt
+  är det som ändras när man pluggar, höger är förutsättningarna — de
+  ändras sällan men behöver synas, och att rulla förbi dem för att nå
+  kurvan vore att lägga det stillastående i vägen för det rörliga.
+  Antagningspoängen är tomma från start: en föråldrad siffra som ser ut
+  som en sanning är sämre än ett tomt fält som ber om en.
+- Datumen visar **dygn kvar**. "17 oktober" säger ingenting om hur
+  bråttom det är; "om 66 dygn" säger allt.
+
+Ett provtillfälle skrivs som **HÖST25** eller **VÅR26**, inte som ett
+datum. Provet ges två gånger om året och ingen minns vilken lördag i
+oktober man skrev — terminen är hur man tänker på det, och dessutom allt
+uträkningen behöver. Fältet tar HÖST25, host 25, H25, HT25 och VT2026
+lika gärna, och skriver om sig till kanonisk form när man lämnar det.
+
+Sidan sparas medan du skriver.
+
+**Sifferfälten går att skriva komma i**, vilket låter självklart och inte
+är det. Ett kontrollerat fält som tolkar värdet vid varje tangenttryckning
+gör det omöjligt att skriva 1,70: efter kommat är texten `"1,"` som tolkas
+till talet `1`, som ritas tillbaka som `"1"` — och kommat är borta innan
+man hunnit skriva 7:an. `Talfalt` äger därför sin råa text medan man
+skriver och skickar bara ut det tolkade värdet; texten skrivs om utifrån
+först när det inkommande värdet säger något annat än det man skrivit.
+
 ## Mobil
 
 Appen är byggd för att användas med tummen.
 
 - Sidopanelen blir en låda bakom ☰; vyväxlaren flyttar ned till en
   bottenrad inom räckhåll.
+- Bottenraden bär alla fyra sidorna. Nyknappen göms under Annat, där
+  sidorna kommer ur registret och det inte finns något att lägga till —
+  en plusknapp som inte gör något är värre än ingen.
 - Vyväxlaren finns **bara** i bottenraden. Navigeringsraden bär ☰, Idag,
   rubriken och `⌕`. (Fram till nu syntes sid- och vyväxlaren även däruppe,
   dubblerade mot bottenraden — se *Ett CSS-lager värt att känna till*.)
@@ -381,6 +470,7 @@ lib/anvandMedia.ts   Mediefrågor som React-tillstånd
 lib/tolka.ts         Fångsttolken — fri svensk text till en post
 lib/sok.ts           Sök över händelser, uppgifter och anteckningar
 lib/kopplingar.ts    [[haklänkar]], uppslag och bakåtlänkar
+lib/sidor/           uträkningar per sida under Annat
 lib/typer.ts         Datamodellen
 
 components/Butik.tsx           React-sidan av lagret, med ångra/gör om
@@ -395,6 +485,8 @@ components/Sidopanel.tsx       Minimånad, kalenderfilter, dagens lista
 components/AttGora.tsx         Att göra: styrka, kategori, förfallodatum
 components/Anteckningar.tsx    Lista och skrivyta, med kopplingarna
 components/Kopplingar.tsx      "Pekar på" och "Nämns i" — samma i alla paneler
+components/Annat.tsx           Avdelningen och dess kompakta sidlista
+components/sidor/              En komponent per sida, plus delade byggstenar
 components/Konto.tsx           Inloggning och synkstatus
 components/Offline.tsx         Service worker, offlineremsa, uppdatering
 
@@ -421,7 +513,7 @@ Demomaterialet som tidigare såddes automatiskt ligger kvar i
 
 ## Prov
 
-`npm test` kör nio sviter:
+`npm test` kör tio sviter:
 
 - **Upprepningsmotorn** — 22 prov över skottår, korta månader, sommartid,
   räknade serier sedda genom sena fönster, undantag och flyttade förekomster.
@@ -439,6 +531,14 @@ Demomaterialet som tidigare såddes automatiskt ligger kvar i
   praktiken sin första rad.
 - **Kopplingarna** — 12 prov över skiftläge, blanksteg, mål som saknas och
   poster som länkar till sig själva.
+- **Högskoleprovssidan** — 35 prov, med tyngdpunkt på tolkningen av data
+  databasen inte kontrollerar: skräp in ger en tom men ritbar sida, och
+  ett tomt fält blir `null` och inte noll. (`Number("")` är 0 i
+  JavaScript, vilket gjorde varje oifyllt delprov till noll rätt — och
+  därmed till den svagaste delen, varje gång.) Här ligger också
+  kommateckensbuggen fångad som ett prov: `"1,"` måste tolkas till samma
+  tal som `"1"`, annars ser fältet sig självt som ur takt och suddar
+  kommat man just skrev.
 - **Synken** — 23 prov över sammanfogningen vid krock, gravstenar,
   offlinekön och synkmarkören. Skrivna som berättelser om två enheter, eftersom det är så
   felen uppstår: telefonen i tunnelbanan och datorn på kontoret ändrar

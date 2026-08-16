@@ -25,6 +25,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   Anteckning,
   Handelse,
+  SidData,
+  Sida,
   Kalender,
   Prioritet,
   Synkbar,
@@ -36,6 +38,7 @@ import {
   SUPABASE_VARD,
   TABELL_ANTECKNINGAR,
   TABELL_HANDELSER,
+  TABELL_SIDOR,
   TABELL_KALENDRAR,
   TABELL_UPPGIFTER,
   hamtaKlient,
@@ -43,6 +46,7 @@ import {
 import {
   normalisera,
   normaliseraAnteckning,
+  normaliseraSida,
   normaliseraKalender,
   normaliseraUppgift,
   type Ogonblick,
@@ -313,6 +317,38 @@ function anteckningFranRad(r: AnteckningRad): Anteckning {
   });
 }
 
+interface SidaRad {
+  agare: string;
+  id: string;
+  data: SidData;
+  skapad: string;
+  andrad: string;
+  raderad: string | null;
+  synk_vid?: string;
+}
+
+function sidaTillRad(x: Sida, agare: string): SidaRad {
+  return {
+    agare,
+    id: x.id,
+    data: x.data,
+    skapad: x.skapad,
+    andrad: x.andrad,
+    raderad: x.raderad,
+  };
+}
+
+function sidaFranRad(r: SidaRad): Sida {
+  return normaliseraSida({
+    id: r.id,
+    data: r.data,
+    skapad: r.skapad,
+    andrad: r.andrad,
+    raderad: r.raderad ?? null,
+    synkad: true,
+  });
+}
+
 /* ==================================================================
    SAMMANFOGNING
    ================================================================== */
@@ -407,7 +443,8 @@ export function antalIvag(o: Ogonblick): number {
     osynkade(o.handelser).length +
     osynkade(o.kalendrar).length +
     osynkade(o.uppgifter).length +
-    osynkade(o.anteckningar).length
+    osynkade(o.anteckningar).length +
+    osynkade(o.sidor).length
   );
 }
 
@@ -454,7 +491,7 @@ export async function synka(
   };
 
   /* --- 1. Hämta allt som rört sig sedan förra körningen ------------ */
-  const [svarH, svarK, svarU, svarA] = await Promise.all([
+  const [svarH, svarK, svarU, svarA, svarS] = await Promise.all([
     klient
       .from(TABELL_HANDELSER)
       .select("*")
@@ -475,12 +512,18 @@ export async function synka(
       .select("*")
       .gt("synk_vid", franMarkor)
       .order("synk_vid", { ascending: true }),
+    klient
+      .from(TABELL_SIDOR)
+      .select("*")
+      .gt("synk_vid", franMarkor)
+      .order("synk_vid", { ascending: true }),
   ]);
 
   if (svarH.error) throw new Error(oversattRadfel(svarH.error.message));
   if (svarK.error) throw new Error(oversattRadfel(svarK.error.message));
   if (svarU.error) throw new Error(oversattRadfel(svarU.error.message));
   if (svarA.error) throw new Error(oversattRadfel(svarA.error.message));
+  if (svarS.error) throw new Error(oversattRadfel(svarS.error.message));
 
   // Provraden från diagnosen bär ett internt id och hör inte hemma i
   // kalendern. Markören flyttas ändå av den, vilket är riktigt: den har
@@ -497,10 +540,14 @@ export async function synka(
   const fjarrA = ((svarA.data ?? []) as AnteckningRad[]).filter(
     (r) => !r.id.startsWith(INTERNT)
   );
+  const fjarrS = ((svarS.data ?? []) as SidaRad[]).filter(
+    (r) => !r.id.startsWith(INTERNT)
+  );
   for (const r of (svarH.data ?? []) as HandelseRad[]) senare(r.synk_vid);
   for (const r of (svarK.data ?? []) as KalenderRad[]) senare(r.synk_vid);
   for (const r of (svarU.data ?? []) as UppgiftRad[]) senare(r.synk_vid);
   for (const r of (svarA.data ?? []) as AnteckningRad[]) senare(r.synk_vid);
+  for (const r of (svarS.data ?? []) as SidaRad[]) senare(r.synk_vid);
   let data: Ogonblick = {
     handelser: sammanfoga(lokal.handelser, fjarrH.map(franRad)),
     kalendrar: sammanfogaKalendrar(
@@ -512,6 +559,7 @@ export async function synka(
       lokal.anteckningar,
       fjarrA.map(anteckningFranRad)
     ),
+    sidor: sammanfoga(lokal.sidor, fjarrS.map(sidaFranRad)),
   };
 
   /* --- 2. Skjut upp det som molnet inte sett ----------------------- */
@@ -519,6 +567,7 @@ export async function synka(
   const uppK = osynkade(data.kalendrar);
   const uppU = osynkade(data.uppgifter);
   const uppA = osynkade(data.anteckningar);
+  const uppS = osynkade(data.sidor);
 
   // Kalendrarna först: en händelse pekar på sin kalender, och den bör
   // finnas uppe innan händelsen gör det. Databasen har medvetet ingen
@@ -578,11 +627,25 @@ export async function synka(
     }
   }
 
+  if (uppS.length > 0) {
+    for (const klump of dela(uppS, 200)) {
+      const svar = await klient
+        .from(TABELL_SIDOR)
+        .upsert(
+          klump.map((x) => sidaTillRad(x, anvandarId)),
+          { onConflict: "agare,id" }
+        )
+        .select("id");
+      if (svar.error) throw new Error(oversattRadfel(svar.error.message));
+    }
+  }
+
   // Först när skrivningen gått igenom får posterna räknas som synkade.
   const uppH_ider = new Set(uppH.map((h) => h.id));
   const uppK_ider = new Set(uppK.map((k) => k.id));
   const uppU_ider = new Set(uppU.map((u) => u.id));
   const uppA_ider = new Set(uppA.map((a) => a.id));
+  const uppS_ider = new Set(uppS.map((x) => x.id));
   data = {
     handelser: data.handelser.map((h) =>
       uppH_ider.has(h.id) ? { ...h, synkad: true } : h
@@ -596,6 +659,9 @@ export async function synka(
     anteckningar: data.anteckningar.map((a) =>
       uppA_ider.has(a.id) ? { ...a, synkad: true } : a
     ),
+    sidor: data.sidor.map((x) =>
+      uppS_ider.has(x.id) ? { ...x, synkad: true } : x
+    ),
   };
 
   skrivMarkor(anvandarId, nyMarkor);
@@ -603,8 +669,13 @@ export async function synka(
   return {
     data,
     markor: nyMarkor,
-    ner: fjarrH.length + fjarrK.length + fjarrU.length + fjarrA.length,
-    upp: uppH.length + uppK.length + uppU.length + uppA.length,
+    ner:
+      fjarrH.length +
+      fjarrK.length +
+      fjarrU.length +
+      fjarrA.length +
+      fjarrS.length,
+    upp: uppH.length + uppK.length + uppU.length + uppA.length + uppS.length,
   };
 }
 

@@ -909,6 +909,146 @@ select.falt {
 }
 
 /* ==================================================================
+   SIDOR — avdelningen Annat
+
+   Sidorna ser olika ut i grunden, men de delar vokabulär: ett avsnitt
+   är en ruta med 1px-ram och en versal etikett, siffror sätts i
+   antikvan, och accenten sparas till det enda som kräver ett beslut.
+   ================================================================== */
+.sidavsnitt {
+  border: 1px solid var(--ink);
+  background: var(--panel);
+}
+
+.sidrubrik {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--ink);
+  background: var(--paper);
+  padding: 0.35rem 0.6rem;
+  min-height: 30px;
+}
+
+/* Stora tal — den enda plats i appen där siffran ÄR innehållet. */
+.stortal {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 2.3rem;
+  line-height: 0.95;
+  font-variant-numeric: tabular-nums;
+}
+
+.medeltal {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 1.15rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Smalt sifferfält. Ett fält som är brett som en mening inbjuder till
+   att skriva en mening i det. */
+.talfalt {
+  width: 5.2rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.datumfalt {
+  width: 9.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Redigerbar rad i en lista. Raderaknappen träder fram vid beröring. */
+.sidrad {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid rgb(17 17 17 / 0.12);
+}
+
+.sidrad:last-child {
+  border-bottom: 0;
+}
+
+/* Mätaren för delpoäng. Ramen visar maxpoängen, fyllningen resultatet —
+   färgen bär aldrig informationen ensam, talet står alltid skrivet. */
+.matare {
+  position: relative;
+  height: 9px;
+  border: 1px solid var(--ink);
+  background: var(--panel);
+  flex: 1;
+  min-width: 40px;
+}
+
+.matare > span {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--ink);
+}
+
+/* Den svagaste delen är det enda på sidan man kan handla på direkt. */
+.matare[data-svagast="1"] > span {
+  background: var(--accent);
+}
+
+/* Räcker poängen eller inte — skrivet, inte bara färgat. */
+.utfall[data-racker="1"] {
+  font-weight: 500;
+}
+
+.utfall[data-racker="0"] {
+  color: var(--accent);
+}
+
+/* Sidlistan till vänster. Kompakt: den skall inte konkurrera med
+   innehållet, bara tala om var man är. */
+.sidval {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid rgb(17 17 17 / 0.12);
+  transition: background-color 120ms linear;
+}
+
+.sidval:hover {
+  background: var(--panel);
+}
+
+.sidval[data-vald="1"] {
+  background: var(--panel);
+  box-shadow: inset 3px 0 0 var(--ink);
+}
+
+@media (max-width: 767px) {
+  .stortal {
+    font-size: 2rem;
+  }
+
+  .sidrad {
+    padding: 0.55rem 0.6rem;
+  }
+
+  .sidval {
+    padding: 0.7rem 0.6rem;
+  }
+
+  /* Sifferfälten måste rymma ett finger utan att bli textfält. */
+  .talfalt {
+    width: 5.8rem;
+  }
+
+  .datumfalt {
+    width: 100%;
+  }
+}
+
+/* ==================================================================
    KOPPLINGAR
    En länk skall se ut som en länk utan att låna färg från något annat
    i systemet — accenten är redan upptagen av "detta kräver din

@@ -201,6 +201,58 @@ create policy "egna anteckningar"
   with check (agare = auth.uid());
 
 -- -------------------------------------------------------------------
+-- SIDOR (avdelningen Annat)
+--
+-- Sådant som inte går att pressa in i EN kategori: en väg till
+-- läkarprogrammet är varken en händelse, en uppgift eller en anteckning
+-- utan lite av varje, sett ur ett bestämt perspektiv.
+--
+-- `data` är JSONB och formen ägs av sidans komponent, inte av databasen.
+-- Det är ett medvetet undantag från hur resten av schemat ser ut, och
+-- skälet är att varje sida är olik de andra i grunden: en kolumnuppsättning
+-- som passar högskoleprovet passar ingenting annat, och en tabell per sida
+-- vore en migrering varje gång man kommer på något nytt att följa.
+--
+-- Priset är att databasen inte kan kontrollera innehållet. Det bärs på
+-- klientsidan i stället — se `tolkaHpData`, som läser gammal eller trasig
+-- data utan att kasta.
+--
+-- `id` är registernyckeln ("hogskoleprov"), inte ett slumpat id. Två
+-- enheter som öppnar sidan var för sig skapar därför samma rad, och
+-- krocken löses av den vanliga senaste-vinner-regeln i stället för att
+-- bli två dubbletter att städa för hand.
+-- -------------------------------------------------------------------
+create table if not exists public.sidor (
+  agare     uuid        not null default auth.uid()
+                        references auth.users (id) on delete cascade,
+  id        text        not null,
+  data      jsonb       not null default '{}'::jsonb,
+  skapad    timestamptz not null default now(),
+  andrad    timestamptz not null,
+  raderad   timestamptz,
+  synk_vid  timestamptz not null default now(),
+  primary key (agare, id)
+);
+
+drop trigger if exists synk_vid_sidor on public.sidor;
+create trigger synk_vid_sidor
+  before insert or update on public.sidor
+  for each row execute function public.satt_synk_vid();
+
+create index if not exists sidor_synk_idx
+  on public.sidor (agare, synk_vid);
+
+alter table public.sidor enable row level security;
+
+drop policy if exists "egna sidor" on public.sidor;
+create policy "egna sidor"
+  on public.sidor
+  for all
+  to authenticated
+  using (agare = auth.uid())
+  with check (agare = auth.uid());
+
+-- -------------------------------------------------------------------
 -- INDEX
 -- Varje synkrunda frågar "vad har hänt sedan X, för mig". Utan det här
 -- indexet blir det en full tabellgenomgång vid varje appstart.
@@ -262,6 +314,8 @@ as $$
   delete from public.uppgifter
     where raderad is not null and raderad < now() - interval '90 days';
   delete from public.anteckningar
+    where raderad is not null and raderad < now() - interval '90 days';
+  delete from public.sidor
     where raderad is not null and raderad < now() - interval '90 days';
 $$;
 
@@ -326,6 +380,15 @@ begin
       and tablename = 'anteckningar'
   ) then
     alter publication supabase_realtime add table public.anteckningar;
+  end if;
+
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'sidor'
+  ) then
+    alter publication supabase_realtime add table public.sidor;
   end if;
 end
 $$;
