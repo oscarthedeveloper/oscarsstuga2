@@ -205,7 +205,7 @@ export default function HandelsePanel({
           {/* Titel */}
           <input
             ref={titelRef}
-            className="falt !text-[0.95rem] !py-2"
+            className="falt !text-base !py-2"
             placeholder="Vad gäller saken?"
             value={form.titel}
             onChange={(e) => satt({ titel: e.target.value })}

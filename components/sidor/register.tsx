@@ -17,6 +17,7 @@
 import type { ComponentType } from "react";
 import type { SidData, Sida } from "@/lib/typer";
 import Hogskoleprov from "./Hogskoleprov";
+import Sprak from "./Sprak";
 
 export interface SidProps {
   /** Sidans sparade innehåll, eller null om den aldrig fyllts i. */
@@ -41,6 +42,13 @@ export const SIDOR: SidDefinition[] = [
     kort: "HP",
     beskrivning: "Resultat, delpoäng, antagningspoäng och plugglogg",
     Komponent: Hogskoleprov,
+  },
+  {
+    id: "sprak",
+    titel: "Språk",
+    kort: "SP",
+    beskrivning: "Hyllor, mappar och blad för italienska, tyska, svenska och engelska",
+    Komponent: Sprak,
   },
 ];
 

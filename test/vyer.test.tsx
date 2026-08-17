@@ -22,6 +22,9 @@ import KalenderPanel from "../components/KalenderPanel";
 import AttGora from "../components/AttGora";
 import Anteckningar from "../components/Anteckningar";
 import Annat from "../components/Annat";
+import Sprak from "../components/sidor/Sprak";
+import Bladtrad from "../components/sidor/block/Bladtrad";
+import { normaliseraSida } from "../lib/butik";
 import { SIDOR } from "../components/sidor/register";
 import { STANDARDKALENDRAR } from "../lib/butik";
 import { provdata } from "./provdata";
@@ -371,6 +374,94 @@ prov("högskoleprovssidan ritar sina avsnitt utan data", () => {
   // Delpoängen går inte att fylla i utan ett provtillfälle att fylla i
   // dem för, och avsnittet säger det i stället för att rita tomma fält.
   innehaller(html, "Lägg till ett provtillfälle ovan");
+});
+
+prov("språksidan ritar hyllvyn och det tomma läget", () => {
+  const html = renderToStaticMarkup(
+    h(ButikProvider, null, h(Annat, { oppnaId: "sprak" }))
+  );
+  innehaller(html, "Inga språk ännu");
+  innehaller(html, "+ Språk");
+  // Brödsmulan är det enda som talar om var man är i fyra nivåer.
+  innehaller(html, "Språk");
+});
+
+prov("varje språk får en egen rad med sina mappar", () => {
+  // Hyllan ÄR raden. Alla språk syns samtidigt, och mapparna ligger på
+  // respektive språks rad — man skall inte behöva välja ett språk för
+  // att få se vad som står i det.
+  const sida = normaliseraSida({
+    id: "sprak",
+    data: {
+      hyllor: [
+        { id: "it", namn: "Italienska", ton: 2 },
+        { id: "de", namn: "Tyska", ton: 3 },
+      ],
+      mappar: [
+        { id: "verb", hyllaId: "it", titel: "Verb", bihang: "A2–B1" },
+        { id: "idiom", hyllaId: "it", titel: "Idiom" },
+        { id: "kasus", hyllaId: "de", titel: "Kasus" },
+      ],
+      blad: [],
+    },
+  });
+  const html = renderToStaticMarkup(
+    h(ButikProvider, null, h(Sprak, { sida, spara: tomt }))
+  );
+  // Båda hyllorna ritas samtidigt, utan att någon behöver väljas.
+  innehaller(html, "Italienska");
+  innehaller(html, "Tyska");
+  // Och båda hyllornas mappar syns.
+  innehaller(html, "Verb");
+  innehaller(html, "Idiom");
+  innehaller(html, "Kasus");
+  // Raden radbryter inte — då vore den inte en hylla.
+  innehaller(html, "hyllrad");
+  // Mappen utan omslag ritas som en mapp.
+  innehaller(html, "Mapp utan omslag");
+});
+
+prov("trädsidlisten visar hela hyllan med filsystemets vokabulär", () => {
+  const html = renderToStaticMarkup(
+    h(Bladtrad, {
+      hyllnamn: "Tyska",
+      mappar: [
+        { id: "subst", hyllaId: "de", titel: "Substantiv", bihang: "" },
+        { id: "verb", hyllaId: "de", titel: "Verb", bihang: "" },
+      ],
+      bladFor: (id: string) =>
+        id === "subst"
+          ? [
+              {
+                id: "dativ",
+                mappId: "subst",
+                titel: "Dativ",
+                underrubrik: "",
+                utkast: true,
+                block: [],
+              },
+            ]
+          : [],
+      oppenMapp: "subst",
+      oppetBlad: "dativ",
+      onOppnaMapp: tomt,
+      onOppnaBlad: tomt,
+      onTillHyllan: tomt,
+    })
+  );
+  // Hela hyllans mappar, inte bara den öppnade — man skall kunna hoppa
+  // mellan mappar utan att backa ut.
+  innehaller(html, "Substantiv/");
+  innehaller(html, "Verb/");
+  // Snedstrecket och triangeln skiljer mapp från blad utan färg, som
+  // måste hållas ledig för "det här är du".
+  innehaller(html, "▾");
+  innehaller(html, "▸");
+  // Bladet i den öppna mappen, med utkastmärke.
+  innehaller(html, "Dativ");
+  innehaller(html, "utkast");
+  // Aktiv rad markeras.
+  innehaller(html, 'data-aktiv="1"');
 });
 
 prov("mobilen kan bläddra, växla sida och nå paletten", () => {

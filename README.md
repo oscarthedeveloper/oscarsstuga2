@@ -14,8 +14,8 @@ hörnparenteser och kolofonremsor. Inga rundade hörn, ingen grotesk.
 ```
 npm install
 npm run dev      # http://localhost:3000
-npm test         # 198 prov: upprepningar, kalendrar, uppgifter, layout,
-                 #            tolk, sök, kopplingar, högskoleprov, synk, vyer
+npm test         # 245 prov: upprepningar, kalendrar, uppgifter, layout, tolk,
+                 #            sök, kopplingar, högskoleprov, språk, synk, vyer
 npm run typecheck
 ```
 
@@ -281,6 +281,108 @@ man hunnit skriva 7:an. `Talfalt` äger därför sin råa text medan man
 skriver och skickar bara ut det tolkade värdet; texten skrivs om utifrån
 först när det inkommande värdet säger något annat än det man skrivit.
 
+### Språk
+
+Ett bibliotek i fyra nivåer: **hylla → mapp → blad → block.**
+
+**Hyllan är en rad.** Ett språk per rad, mapparna liggande på den, och
+alla språk synliga samtidigt — man skall inte behöva välja ett språk för
+att få se vad som står i det. Raden radbryter aldrig: gör den det är det
+inte längre en hylla utan ett rutnät, och då försvinner just det som gör
+att man ser ett språk i taget. Ligger det fler mappar än som ryms rullar
+raden i sidled, och att en mapp är avklippt i kanten är signalen om att
+det finns mer. Vid fler än fyra mappar finns dessutom *visa alla*, som
+fäller ut hyllan till allt på en gång.
+
+En hylla bär en ton ur kalenderpaletten. En mapp är en "bok" — väljer du
+en omslagsbild visas den, annars ritas mappen som en mapp i hyllans ton.
+Ett blad är ett "papper", och innehållet är block.
+
+Ramen sitter på **omslaget**, inte runt hela mappen. En kortram gjorde
+varje mapp till en ruta bland rutor; utan den är det omslaget som är
+föremålet och texten bara en etikett under det. Titeln har alltid två
+rader avsatta, även när den bara behöver en — annars hamnar underraderna
+på olika höjd och hyllan blir en ojämn hög i stället för en hylla.
+
+Bladet är satt som ett **dokument**, inte som ett formulär. En regel bär
+hela uppställningen: **antikva för det man läser, monospace för
+apparaten.** Titel, avsnittsrubrik, citat, brödtext och kommentar sätts i
+Newsreader; brödsmula, underrubrik, etiketter, källor, tabelldata och
+märken i Martian Mono. Ingenting blandas, och det är den enda anledningen
+att sidan håller ihop trots att den bär tio sorters innehåll. Bakgrunden
+har ett svagt rutnät — samma teknik som tidsrutnätet, raster i stället för
+element.
+
+Bladet bär rubrik, **underrubrik** i kapitäler och ett **utkastmärke** som
+växlas genom att tryckas. Ett tillstånd man byter ofta skall inte ligga
+bakom en inställningspanel.
+
+Sidlisten är svart och kompakt, med **hela hyllans träd** — mappar och
+deras blad om vartannat, inte bara den öppnade mappens innehåll. Man skall
+kunna hoppa från *Dativ* till *Starka verb* utan att backa ut till hyllan.
+Vokabulären är filsystemets: `▸ Namn/` för en mapp, `· Namn` för ett blad.
+Snedstrecket och triangeln behöver inte läras in, och de skiljer de två
+sorterna åt utan färg — vilket är nödvändigt, eftersom orange redan är
+upptaget av "det här är du".
+
+**Tio blocktyper:** text, rubrik, belägg, faktarad, tabell, böjning,
+ordpar, paralleltext, flikar och anmärkning. I text fungerar `**fet**`, `*kursiv*` och
+`` `kod` `` — och ingenting mer. Varje tecken som får en betydelse är ett
+tecken man inte längre kan skriva utan att tänka, och den som skriver om
+grammatik skriver ofta om just tecken. En ensam stjärna öppnar därför
+aldrig en kursivering: `*ho andato är fel` är en mening, inte en
+markering som sträcker sig genom stycket.
+
+Fyra av blocken kommer ur dokumentationsformspråket:
+
+- **Belägg** är ett citat med källa och kommentar. Layouten följer
+  innehållet i stället för att styras av ett fält: saknas kommentaren går
+  citatet i full bredd och stor grad — ett anslag — och finns den blir
+  citatet en vänsterspalt med kommentaren intill. Samma block, två
+  uppställningar, inget val att göra fel. Citatet bär en streckad
+  vänsterkant som håller ihop det med källan utan att rita en ruta.
+- **Faktarad** är etikett över värde i spalter mellan två streckade
+  linjer. Skild från tabellen med flit: en tabell jämför rader med
+  varandra, en faktarad räknar upp egenskaper hos *en* sak.
+- **Tabellen** har bildtext i kapitäler och **framhävda rader**. En tabell
+  i en grammatikanteckning finns nästan alltid för en rads skull —
+  paradigmet visas helt, men det är dativen man skriver om.
+- **Anmärkningen** har en solid svart flik med ordet (Not, Obs, Tips) och
+  innehållet i en ramad ruta intill. Ordet bär betydelsen; flikens färg
+  skiljer bara de tre slagen åt och behövs inte för att förstå rutan.
+
+Tre är gjorda för språkstudier snarare än för dokumentation:
+
+- **Böjning** är en tabell där första spalten är en etikettspalt, med
+  färdiga uppsättningar för italienska, tyska, svenska, engelska och
+  tyska kasus. Ingen skriver io/tu/lui/noi/voi/loro för hand mer än en gång.
+- **Ordpar** är glosor i två spalter.
+- **Paralleltext** är samma stycke på två språk sida vid sida. Varken den
+  eller ordparen staplas på telefonen: två språk under varandra är inte en
+  paralleltext utan två texter, och hela poängen är att kunna kasta
+  blicken i sidled. Löptexten går ned i grad i stället.
+
+Blocken läses förvalt och redigeras på knapptryck, inte på klick i
+texten. Ett stycke som blir ett textfält när man klickar i det går inte
+att markera med musen, och på en telefon blir varje rullning en risk att
+öppna fel block. Nya block öppnas däremot direkt — där finns ingenting
+att läsa ännu.
+
+**Omslagen ligger i en egen lagerpost.** Sidan sparas medan du skriver,
+och låg bilderna i samma post som texten skulle varenda omslag skickas
+upp på nytt vid varje tangenttryckning. `Sida`-entiteten tar godtyckliga
+id:n, så `sprak` och `sprak-omslag` kostar ingen ny maskineri.
+
+Bilderna krymps i webbläsaren till 300 px bredd som JPEG, ungefär tjugo
+kilobyte styck. Det är inte snålhet: `localStorage` rymmer omkring fem
+megabyte, och ett enda omslag rakt från telefonens kamera skulle kunna
+fylla lagret och tysta varje efterföljande skrivning — inklusive
+kalenderns.
+
+Mappen ritas med systemmappens silhuett men raka hörn, hårfin ram och
+hyllans färg. En rundad blå systemmapp hade varit trognare macOS och
+sett ut som en gäst i en app där ingenting annat är rundat.
+
 ## Mobil
 
 Appen är byggd för att användas med tummen.
@@ -471,6 +573,7 @@ lib/tolka.ts         Fångsttolken — fri svensk text till en post
 lib/sok.ts           Sök över händelser, uppgifter och anteckningar
 lib/kopplingar.ts    [[haklänkar]], uppslag och bakåtlänkar
 lib/sidor/           uträkningar per sida under Annat
+lib/bild.ts          krympning av omslagsbilder
 lib/typer.ts         Datamodellen
 
 components/Butik.tsx           React-sidan av lagret, med ångra/gör om
@@ -513,7 +616,7 @@ Demomaterialet som tidigare såddes automatiskt ligger kvar i
 
 ## Prov
 
-`npm test` kör tio sviter:
+`npm test` kör elva sviter:
 
 - **Upprepningsmotorn** — 22 prov över skottår, korta månader, sommartid,
   räknade serier sedda genom sena fönster, undantag och flyttade förekomster.
@@ -531,6 +634,10 @@ Demomaterialet som tidigare såddes automatiskt ligger kvar i
   praktiken sin första rad.
 - **Kopplingarna** — 12 prov över skiftläge, blanksteg, mål som saknas och
   poster som länkar till sig själva.
+- **Språkbiblioteket** — 26 prov över tolkningen av data databasen inte
+  kontrollerar, trädstädningen (en borttagen hylla måste ta med sig sina
+  mappar och blad, annars blir de kvar osynliga men synkade och växer för
+  varje språk man ångrar) och markeringen.
 - **Högskoleprovssidan** — 35 prov, med tyngdpunkt på tolkningen av data
   databasen inte kontrollerar: skräp in ger en tom men ritbar sida, och
   ett tomt fält blir `null` och inte noll. (`Number("")` är 0 i
