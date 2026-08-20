@@ -84,6 +84,44 @@ interface Attrapp {
   skrivStampel: string;
 }
 
+/**
+ * Attrapp som SKILJER PÅ TABELLER.
+ *
+ * Den enkla attrappen ovan svarar likadant oavsett tabell, vilket räcker
+ * för att prova markören och sammanfogningen. Den duger däremot inte för
+ * att svara på "hamnar en sida verkligen i sidor-tabellen" — och det är
+ * precis den sortens fråga man vill ha ett prov på, eftersom ett fel där
+ * ser ut som att allting fungerar tills man byter enhet.
+ */
+function falskKlientPerTabell(
+  hamta: (tabell: string) => Record<string, unknown>[],
+  skickat: Record<string, Record<string, unknown>[]>
+) {
+  return {
+    from(tabell: string) {
+      const byggare: Record<string, unknown> = {};
+      Object.assign(byggare, {
+        select: () => byggare,
+        gt: () => byggare,
+        order: () => Promise.resolve({ data: hamta(tabell), error: null }),
+        upsert: (rader: Record<string, unknown>[]) => {
+          skickat[tabell] = [...(skickat[tabell] ?? []), ...rader];
+          return {
+            select: () =>
+              Promise.resolve({
+                data: rader.map((r) => ({ id: r.id, synk_vid: NU })),
+                error: null,
+              }),
+          };
+        },
+      });
+      return byggare;
+    },
+  };
+}
+
+const NU = "2026-08-12T10:00:00.000Z";
+
 /** Minsta möjliga Supabase-klient: bara det synka() faktiskt rör. */
 function falskKlient(a: Attrapp) {
   return {
@@ -462,5 +500,131 @@ async function kor() {
   );
   process.exit(fel ? 1 : 0);
 }
+
+provAsync("en sida skickas upp till sidor-tabellen", async () => {
+  const anvandare = "prov-sidor-upp";
+  nollstallMarkor(anvandare);
+  const skickat: Record<string, Record<string, unknown>[]> = {};
+  const klient = falskKlientPerTabell(() => [], skickat);
+
+  const lokal: Ogonblick = {
+    handelser: [],
+    kalendrar: [],
+    uppgifter: [],
+    anteckningar: [],
+    sidor: [
+      {
+        id: "privatekonomi",
+        data: { kategorier: [{ id: "spar", namn: "Sparande" }] },
+        skapad: NU,
+        andrad: NU,
+        raderad: null,
+        synkad: false,
+      },
+    ],
+  };
+
+  const resultat = await synka(lokal, anvandare, klient as never);
+
+  // Rätt tabell, och ingen annan.
+  lika(Object.keys(skickat), ["sidor"]);
+  const rad = skickat.sidor[0];
+  lika(rad.id, "privatekonomi");
+  lika(rad.agare, anvandare);
+  // Innehållet skall gå upp orört — det är sidans egen form, och
+  // synkmotorn har ingen rätt att tolka den.
+  lika(rad.data, { kategorier: [{ id: "spar", namn: "Sparande" }] });
+
+  // Och posten skall räknas som synkad efteråt, annars skickas den upp
+  // igen i all evighet.
+  lika(resultat.data.sidor[0].synkad, true);
+  lika(resultat.upp, 1);
+});
+
+provAsync("en sida från molnet sammanfogas in", async () => {
+  const anvandare = "prov-sidor-ner";
+  nollstallMarkor(anvandare);
+  const skickat: Record<string, Record<string, unknown>[]> = {};
+  const klient = falskKlientPerTabell(
+    (tabell) =>
+      tabell === "sidor"
+        ? [
+            {
+              agare: anvandare,
+              id: "fornsvenska",
+              data: { verk: [{ id: "a", kod: "FSV-001" }] },
+              skapad: NU,
+              andrad: "2026-08-12T11:00:00.000Z",
+              raderad: null,
+              synk_vid: "2026-08-12T11:00:01.000Z",
+            },
+          ]
+        : [],
+    skickat
+  );
+
+  const lokal: Ogonblick = {
+    handelser: [],
+    kalendrar: [],
+    uppgifter: [],
+    anteckningar: [],
+    sidor: [],
+  };
+
+  const resultat = await synka(lokal, anvandare, klient as never);
+  lika(resultat.data.sidor.length, 1);
+  lika(resultat.data.sidor[0].id, "fornsvenska");
+  lika(resultat.data.sidor[0].synkad, true, "den kom ju från molnet");
+  lika(resultat.ner, 1);
+  // Markören skall ha flyttats fram av den hämtade raden.
+  lika(lasMarkor(anvandare), "2026-08-12T11:00:01.000Z");
+});
+
+provAsync("nyare lokal sida vinner över molnets", async () => {
+  const anvandare = "prov-sidor-krock";
+  nollstallMarkor(anvandare);
+  const skickat: Record<string, Record<string, unknown>[]> = {};
+  const klient = falskKlientPerTabell(
+    (tabell) =>
+      tabell === "sidor"
+        ? [
+            {
+              agare: anvandare,
+              id: "privatekonomi",
+              data: { inkomst: "gammal" },
+              skapad: NU,
+              andrad: "2026-08-12T10:00:00.000Z",
+              raderad: null,
+              synk_vid: "2026-08-12T10:00:01.000Z",
+            },
+          ]
+        : [],
+    skickat
+  );
+
+  const lokal: Ogonblick = {
+    handelser: [],
+    kalendrar: [],
+    uppgifter: [],
+    anteckningar: [],
+    sidor: [
+      {
+        id: "privatekonomi",
+        data: { inkomst: "ny" },
+        skapad: NU,
+        // En timme senare än molnets.
+        andrad: "2026-08-12T11:00:00.000Z",
+        raderad: null,
+        synkad: false,
+      },
+    ],
+  };
+
+  const resultat = await synka(lokal, anvandare, klient as never);
+  lika(resultat.data.sidor.length, 1);
+  lika(resultat.data.sidor[0].data, { inkomst: "ny" }, "molnet skrev över");
+  // Och den lokala vinnaren skall ha skickats upp i samma körning.
+  lika(skickat.sidor?.length, 1);
+});
 
 void kor();

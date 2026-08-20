@@ -464,6 +464,34 @@ prov("trädsidlisten visar hela hyllan med filsystemets vokabulär", () => {
   innehaller(html, 'data-aktiv="1"');
 });
 
+prov("fornsvenskasidan ritar mätarpanel, register och de två listorna", () => {
+  const html = renderToStaticMarkup(
+    h(ButikProvider, null, h(Annat, { oppnaId: "fornsvenska" }))
+  );
+  innehaller(html, "matarpanel");
+  innehaller(html, "andelsstapel");
+  innehaller(html, "Litteratur");
+  innehaller(html, "Att göra");
+  innehaller(html, "Idéer");
+  // Tomma lägen skall be om innehåll, inte visa påhittat.
+  innehaller(html, "Registret är tomt");
+  // Att göra-listan är egen och säger det.
+  innehaller(html, "rör inte appens uppgifter");
+});
+
+prov("privatekonomisidan ritar mätarpanel och tomma lägen", () => {
+  const html = renderToStaticMarkup(
+    h(ButikProvider, null, h(Annat, { oppnaId: "privatekonomi" }))
+  );
+  innehaller(html, "Kvar att fördela");
+  innehaller(html, "Sparkvot");
+  innehaller(html, "Sparmål");
+  innehaller(html, "Mall");
+  // Utan månad skall sidan be om en, inte visa nollor som ser ut som svar.
+  innehaller(html, "Ingen månad upplagd");
+  innehaller(html, "Sätt ett målbelopp");
+});
+
 prov("mobilen kan bläddra, växla sida och nå paletten", () => {
   /*
    * Ritprovet ser DOM:en, inte bildskärmen, så det kan inte mäta om en

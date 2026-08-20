@@ -18,6 +18,8 @@ import type { ComponentType } from "react";
 import type { SidData, Sida } from "@/lib/typer";
 import Hogskoleprov from "./Hogskoleprov";
 import Sprak from "./Sprak";
+import Fornsvenska from "./Fornsvenska";
+import Privatekonomi from "./Privatekonomi";
 
 export interface SidProps {
   /** Sidans sparade innehåll, eller null om den aldrig fyllts i. */
@@ -49,6 +51,20 @@ export const SIDOR: SidDefinition[] = [
     kort: "SP",
     beskrivning: "Hyllor, mappar och blad för italienska, tyska, svenska och engelska",
     Komponent: Sprak,
+  },
+  {
+    id: "fornsvenska",
+    titel: "Fornsvenska",
+    kort: "FS",
+    beskrivning: "Litteraturregister, att göra för hemsidan och idéer",
+    Komponent: Fornsvenska,
+  },
+  {
+    id: "privatekonomi",
+    titel: "Privatekonomi",
+    kort: "EK",
+    beskrivning: "Månadsplanering före löning — kategorier, utfall och sparmål",
+    Komponent: Privatekonomi,
   },
 ];
 

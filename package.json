@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "tsx test/upprepning.test.ts && tsx test/kalendrar.test.ts && tsx test/uppgifter.test.ts && tsx test/layout.test.ts && tsx test/tolka.test.ts && tsx test/sok.test.ts && tsx test/kopplingar.test.ts && tsx test/hogskoleprov.test.ts && tsx test/sprak.test.ts && tsx test/synk.test.ts && tsx test/vyer.test.tsx"
+    "test": "tsx test/upprepning.test.ts && tsx test/kalendrar.test.ts && tsx test/uppgifter.test.ts && tsx test/layout.test.ts && tsx test/tolka.test.ts && tsx test/sok.test.ts && tsx test/kopplingar.test.ts && tsx test/hogskoleprov.test.ts && tsx test/sprak.test.ts && tsx test/fornsvenska.test.ts && tsx test/ekonomi.test.ts && tsx test/synk.test.ts && tsx test/vyer.test.tsx"
   },
   "dependencies": {
     "next": "14.2.5",

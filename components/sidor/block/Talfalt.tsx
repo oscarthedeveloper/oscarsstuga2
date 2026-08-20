@@ -37,14 +37,27 @@ export default function Talfalt({
   etikett,
   platshallare = "—",
   className = "falt talfalt",
+  tolkTal = tolka,
+  skrivTal = skriv,
 }: {
   varde: number | null;
   onVarde(n: number | null): void;
   etikett: string;
   platshallare?: string;
   className?: string;
+  /**
+   * Egen tolkning och utskrift.
+   *
+   * Finns för belopp, som skrivs "7 500" med mellanrum och därför kräver
+   * andra regler än en normerad poäng. Mekaniken — att fältet äger sin
+   * råa text medan man skriver — är densamma, och den skall inte skrivas
+   * en gång till för varje sorts tal. Det vore två chanser att få
+   * kommateckensbuggen tillbaka.
+   */
+  tolkTal?(rå: string): number | null;
+  skrivTal?(varde: number | null): string;
 }) {
-  const [text, setText] = useState(() => skriv(varde));
+  const [text, setText] = useState(() => skrivTal(varde));
   const textRef = useRef(text);
   textRef.current = text;
 
@@ -52,7 +65,8 @@ export default function Talfalt({
     // Bara när det inkommande värdet säger något annat än det man skrivit.
     // "1," tolkas till 1, så en halvskriven decimal räknas som i takt och
     // skrivs inte om mitt i inmatningen.
-    if (tolka(textRef.current) !== varde) setText(skriv(varde));
+    if (tolkTal(textRef.current) !== varde) setText(skrivTal(varde));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [varde]);
 
   return (
@@ -63,12 +77,12 @@ export default function Talfalt({
       value={text}
       onChange={(e) => {
         setText(e.target.value);
-        onVarde(tolka(e.target.value));
+        onVarde(tolkTal(e.target.value));
       }}
       onBlur={() => {
         // Vid tappat fokus är inmatningen färdig, och skräp som "1,,"
         // eller "abc" skall inte ligga kvar och se ut som ett värde.
-        setText(skriv(varde));
+        setText(skrivTal(varde));
       }}
       aria-label={etikett}
     />

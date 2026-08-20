@@ -1717,6 +1717,351 @@ input.dokdeck:focus {
 }
 
 /* ==================================================================
+   INSTRUMENTPANEL
+
+   Sidor som följer ett arbete över tid får se ut som ett instrument.
+   Men "avancerat" byggs här av TÄTHET OCH PRECISION, inte av nya
+   färger: samma fem värden, samma hårfina linjer, samma monospace. Ett
+   sken, en tonad yta eller en accentfärg till hade sett modernt ut i en
+   skärmdump och som en gäst i appen.
+   ================================================================== */
+.matarpanel {
+  display: flex;
+  align-items: flex-end;
+  gap: 1.4rem;
+  flex-wrap: wrap;
+  padding: 0.8rem 0.9rem 0.7rem;
+  border-bottom: 1px solid var(--ink);
+  background: var(--paper);
+}
+
+/* Mätartal sätts i monospace, inte i antikvan. Antikvan är för det man
+   läser; det här är en avläsning. */
+.matartal {
+  font-size: 1.7rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+/* Det som återstår att skaffa är sidans hela ärende. */
+.matartal[data-atgard="1"] {
+  color: var(--accent);
+}
+
+.matarnamn {
+  display: block;
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-weight: 500;
+  opacity: 0.5;
+  margin-bottom: 0.3rem;
+}
+
+/* Andelsstapeln: tre segment i registrets proportioner. Segmenten
+   skiljs av 1px-linjer i stället för av mellanrum, så att stapeln läses
+   som en helhet och inte som tre staplar. */
+.andelsstapel {
+  display: flex;
+  height: 10px;
+  border: 1px solid var(--ink);
+  background: var(--panel);
+  min-width: 140px;
+  overflow: hidden;
+}
+
+.andelsstapel > span {
+  border-right: 1px solid var(--ink);
+  transition: flex-grow 180ms linear;
+}
+
+.andelsstapel > span:last-child {
+  border-right: 0;
+}
+
+.andelsstapel > span[data-lage="behovs"] {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--ink) 0 1px,
+    transparent 1px 4px
+  );
+}
+
+.andelsstapel > span[data-lage="har"] {
+  background: var(--kal-1);
+}
+
+.andelsstapel > span[data-lage="last"] {
+  background: var(--ink);
+}
+
+/* ------------------------------------------------------------------
+   LÄGESMÄTAREN
+   Tre celler, fyllda upp till nuvarande läge. Fyllnaden bär tillståndet
+   utan färg — accenten läggs bara på det som återstår att göra något åt.
+   ------------------------------------------------------------------ */
+.lagesmatare {
+  display: inline-flex;
+  gap: 2px;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.lagesmatare > span {
+  width: 7px;
+  height: 12px;
+  border: 1px solid var(--ink);
+  background: var(--panel);
+}
+
+.lagesmatare > span[data-fylld="1"] {
+  background: var(--ink);
+}
+
+.lagesmatare[data-lage="behovs"] > span[data-fylld="1"] {
+  background: var(--accent);
+}
+
+/* Koden. Arkivets vokabulär: en kort stabil nyckel man kan hänvisa till
+   utanför appen. */
+.kodmarke {
+  font-size: 0.55rem;
+  letter-spacing: 0.1em;
+  font-weight: 500;
+  opacity: 0.42;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Registerraden. Tät i stängt läge, formulär i öppet. */
+.verkrad {
+  border-bottom: 1px solid rgb(17 17 17 / 0.13);
+  transition: background-color 120ms linear;
+}
+
+.verkrad:last-child {
+  border-bottom: 0;
+}
+
+.verkrad:hover {
+  background: var(--panel);
+}
+
+.verkrad[data-oppen="1"] {
+  background: var(--panel);
+  box-shadow: inset 3px 0 0 var(--ink);
+}
+
+.verktitel {
+  font-size: 0.82rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+/* Metaraden under titeln — författare, slag, år, plats. Punkterna
+   sätts av CSS så att tomma fält inte lämnar kvar sina skiljetecken. */
+.verkmeta > span + span::before {
+  content: " · ";
+  opacity: 0.4;
+}
+
+/* Källhänvisningen att kopiera. Ram och monospace: den är data, inte
+   prosa, och skall se ut att gå att markera. */
+.hanvisning {
+  border: 1px dashed rgb(17 17 17 / 0.4);
+  background: var(--paper);
+  padding: 0.4rem 0.5rem;
+  font-size: 0.68rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+@media (max-width: 767px) {
+  .matarpanel {
+    gap: 1rem;
+    padding: 0.7rem;
+  }
+
+  .matartal {
+    font-size: 1.45rem;
+  }
+
+  .andelsstapel {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .verktitel {
+    font-size: 0.9rem;
+  }
+
+  .lagesmatare > span {
+    width: 9px;
+    height: 16px;
+  }
+
+  .hanvisning {
+    font-size: 0.78rem;
+  }
+}
+
+/* ==================================================================
+   PRIVATEKONOMI
+   ================================================================== */
+
+/* Månadens fördelning som en enda stapel. Segmenten skiljs av
+   1px-linjer, inte av mellanrum, så att helheten läses som en helhet. */
+.fordelning {
+  display: flex;
+  height: 22px;
+  border: 1px solid var(--ink);
+  background: var(--panel);
+  overflow: hidden;
+}
+
+.fordelning > span {
+  border-right: 1px solid var(--ink);
+  min-width: 2px;
+}
+
+.fordelning > span:last-child {
+  border-right: 0;
+}
+
+/* Övertrasserat: ramen byter till accent. Proportionerna kan inte visa
+   det, eftersom stapeln alltid fylls helt. */
+.fordelning[data-over="1"] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.fordelning > span[data-ton="0"] { background: var(--kal-1); }
+.fordelning > span[data-ton="1"] { background: var(--kal-2); }
+.fordelning > span[data-ton="2"] { background: var(--kal-3); }
+.fordelning > span[data-ton="3"] { background: var(--kal-4); }
+.fordelning > span[data-ton="4"] { background: var(--kal-5); }
+.fordelning > span[data-ton="5"] { background: var(--kal-6); }
+
+/* Det ofördelade ritas som tomrum med raster, inte som en färg. Det ÄR
+   frånvaron av ett beslut, och skall inte se ut som ännu en kategori. */
+.fordelning > span[data-ofordelat="1"] {
+  background: repeating-linear-gradient(
+    45deg,
+    rgb(17 17 17 / 0.28) 0 1px,
+    transparent 1px 5px
+  );
+}
+
+/* Kategoritabellen. Tät, med tal i egna spalter. */
+.ekotabell {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.72rem;
+}
+
+.ekotabell th {
+  font-size: 0.52rem;
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+  font-weight: 500;
+  opacity: 0.5;
+  text-align: right;
+  padding: 0.3rem 0.4rem;
+  border-bottom: 1px solid var(--ink);
+  white-space: nowrap;
+}
+
+.ekotabell th:first-child {
+  text-align: left;
+}
+
+.ekotabell td {
+  padding: 0.25rem 0.4rem;
+  border-bottom: 1px solid rgb(17 17 17 / 0.1);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  vertical-align: middle;
+}
+
+.ekotabell td:first-child {
+  text-align: left;
+  font-variant-numeric: normal;
+}
+
+.ekotabell tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+/* Summeringsraden står i egen ram och skiljs tydligt från posterna. */
+.ekotabell tfoot td {
+  border-top: 1px solid var(--ink);
+  border-bottom: 0;
+  font-weight: 500;
+  padding-top: 0.4rem;
+}
+
+/* Avvikelse: över plan bär accent, under plan bär inget. Att lägga
+   grönt på det senare hade krävt en sjätte färg för att säga något man
+   redan ser av tecknet. */
+.avvikelse[data-over="1"] {
+  color: var(--accent);
+}
+
+.avvikelse[data-over="0"] {
+  opacity: 0.55;
+}
+
+/* Kategoriprick i tabellens första spalt. */
+.ekoprick {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border: 1px solid var(--ink);
+  flex-shrink: 0;
+}
+
+/* Framstegsstapeln för sparmålet. */
+.malstapel {
+  height: 14px;
+  border: 1px solid var(--ink);
+  background: var(--panel);
+  position: relative;
+  overflow: hidden;
+}
+
+.malstapel > span {
+  display: block;
+  height: 100%;
+  background: var(--ink);
+}
+
+@media (max-width: 767px) {
+  .fordelning {
+    height: 26px;
+  }
+
+  .ekotabell {
+    font-size: 0.8rem;
+  }
+
+  .ekotabell td {
+    padding: 0.45rem 0.35rem;
+  }
+
+  .ekotabell th {
+    padding: 0.35rem 0.35rem;
+  }
+
+  .malstapel {
+    height: 18px;
+  }
+}
+
+/* ==================================================================
    KOPPLINGAR
    En länk skall se ut som en länk utan att låna färg från något annat
    i systemet — accenten är redan upptagen av "detta kräver din

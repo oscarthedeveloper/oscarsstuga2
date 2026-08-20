@@ -14,8 +14,9 @@ hörnparenteser och kolofonremsor. Inga rundade hörn, ingen grotesk.
 ```
 npm install
 npm run dev      # http://localhost:3000
-npm test         # 245 prov: upprepningar, kalendrar, uppgifter, layout, tolk,
-                 #            sök, kopplingar, högskoleprov, språk, synk, vyer
+npm test         # 290 prov: upprepningar, kalendrar, uppgifter, layout, tolk,
+                 #            sök, kopplingar, högskoleprov, språk, fornsvenska,
+                 #            ekonomi, synk, vyer
 npm run typecheck
 ```
 
@@ -486,6 +487,103 @@ understa blocket behåller alltid drygt en fjärdedel av bredden.
 
 Se `lib/layout.ts` och `test/layout.test.ts`.
 
+### Fornsvenska
+
+Egenstudier. Sidan svarar på **en** fråga överst — vad återstår att
+skaffa fram — och därför ligger mätarpanelen först och litteraturregistret
+direkt under. Att göra och idéer är småsaker vid sidan av och tar höger
+spalt.
+
+Varje verk bär en **kort stabil kod**, `FSV-014`. Den finns för att kunna
+hänvisa till en post utanför appen: i en anteckning, i ett utkast, i ett
+mejl till ett bibliotek. Ett slumpat id duger inte till det, och titeln är
+för lång och ändrar sig.
+
+Löpnumret tas alltid som det största av räknaren och högsta använda
+nummer. Två enheter som lägger till varsitt verk offline har samma
+räknare, och den som synkar sist skulle annars skriva en dubblett — vilket
+är särskilt illa när koden är det man hänvisar till.
+
+**Tre lägen:** Behövs → Har → Läst. Lägesmätaren är också knappen som
+stegar framåt; att flytta en post är den vanligaste handlingen på sidan
+och skall inte kräva att man först fäller ut raden.
+
+**Slaget är fri text** — examensarbete, licentiatavhandling, utgåva,
+faksimil, särtryck. Akademiska källtyper låter sig inte listas i en
+rullgardin, och en lista som saknar just din typ tvingar fram fel val.
+
+**Källhänvisningen** byggs ur de fält som råkar vara ifyllda, och tomma
+delar utelämnas helt i stället för att lämna kvar sina skiljetecken. En
+hänvisning med ". ." i mitten ser slarvigare ut än ingen alls.
+
+Länkfältet godtar bara `http` och `https`. En godtycklig sträng här hamnar
+i ett `href` som klickas, och `javascript:` i ett fält som synkas mellan
+enheter är precis det man inte vill ha. Saneringen sker både vid
+inmatning och vid tolkning.
+
+**Att göra-listan är egen** och rör inte appens uppgifter. Det är ett val
+med en känd kostnad — inga datum, ingen ⌘K-fångst, inget sök — och en känd
+vinst: projektstoket förorenar inte den dagliga listan.
+
+En **använd idé bockas av, inte raderas.** Annars fångar man samma tanke
+en gång till om ett halvår.
+
+Sidan ser avancerad ut genom **täthet och precision**, inte genom nya
+färger: samma fem värden, samma hårfina linjer, samma monospace. Ett sken,
+en tonad yta eller en accentfärg till hade sett modernt ut i en skärmdump
+och som en gäst i appen. Accenten bärs bara av det som återstår att göra
+något åt — antalet som behövs, och lägesmätaren på just de posterna.
+
+### Privatekonomi
+
+Gjord för kvarten före löning: pengarna kommer in och skall fördelas.
+Sidan handlar om **kategorier** och aldrig om enskilda utgifter — en tröja
+för 349 kronor hör inte hemma här, "Nöjen 2 000" gör det.
+
+**Kvar att fördela** ligger överst och störst. Det är talet man arbetar
+ned mot noll, och det bär accent så länge det inte är noll: antingen har
+något ännu inte fått en plats, eller så har mer lovats bort än som kommer
+in. Noll är målet och bär därför ingen färg.
+
+Tre lager hålls isär:
+
+- **Kategorierna** lever ovanför månaderna. Att de är gemensamma är hela
+  förutsättningen för att kunna jämföra augusti med juli — hade varje
+  månad haft sina egna rader vore "samma kategori" bara en förhoppning om
+  att man stavat likadant.
+- **Månaden** bär plan och utfall per kategori. Utfallet är frivilligt;
+  en månad man aldrig summerade är inte en trasig månad.
+- **Mallen** fyller i en ny månad, så att ritualen blir att justera och
+  inte att börja om från ett tomt papper. Kategorier som saknas i mallen
+  kommer med som tomma poster — en kategori som inte syns är en kategori
+  man glömmer att fördela till.
+
+Sidan räknar allt själv: andel av inkomsten, avvikelse mot plan,
+sparkvot, framsteg och prognos. Ingenting av det går att skriva för hand,
+eftersom ett inmatat och ett framräknat tal ser likadana ut och det
+första blir fel den dag man ändrar något annat.
+
+**Sparmålet räknas på utfall, inte på plan.** Ett mål som kryper närmare
+för att man *planerat* att spara är ingen mätare utan en önskelista, och
+den som ser sig vara framme utan att vara det har blivit lurad av sitt
+eget verktyg. Prognosen tiger helt när takten är noll eller negativ — ett
+årtal där hade varit en lögn med tre decimalers precision.
+
+Vilka kategorier som räknas som sparande är ett eget val per kategori,
+skilt från namnet. En sida som gissar på ordet "spar" gissar fel för
+någon.
+
+**Två diagram.** Månadens fördelning som en enda stapel — ögat jämför
+längder bättre än vinklar, och frågan är just om sparandet är större än
+nöjena. Det ofördelade får ett eget segment med raster; en stapel som
+alltid är full döljer sidans viktigaste fråga. Sparandet över tid ritas
+som staplar där **ramen är planen och fyllnaden utfallet**, så att
+skillnaden läses direkt i stället för över ett mellanrum.
+
+Genomgående skiljs **noll från okänt**. En ofylld kategori räknas inte in
+i en summa som ser färdig ut, och utan ifylld inkomst är "kvar att
+fördela" okänt — inte noll, som hade sett ut som ett svar.
+
 ## Ett CSS-lager värt att känna till
 
 Egna klasser som skrivs **efter** `@tailwind utilities` hamnar efter
@@ -616,7 +714,7 @@ Demomaterialet som tidigare såddes automatiskt ligger kvar i
 
 ## Prov
 
-`npm test` kör elva sviter:
+`npm test` kör tretton sviter:
 
 - **Upprepningsmotorn** — 22 prov över skottår, korta månader, sommartid,
   räknade serier sedda genom sena fönster, undantag och flyttade förekomster.
@@ -638,6 +736,13 @@ Demomaterialet som tidigare såddes automatiskt ligger kvar i
   kontrollerar, trädstädningen (en borttagen hylla måste ta med sig sina
   mappar och blad, annars blir de kvar osynliga men synkade och växer för
   varje språk man ångrar) och markeringen.
+- **Privatekonomin** — 34 prov över all matematik. Tyngdpunkten ligger på
+  skillnaden mellan noll och okänt, på att sparmålet räknas på utfall och
+  inte på avsikt, och på att prognosen håller tyst när den inte vet.
+- **Fornsvenskasidan** — 24 prov, med tyngdpunkt på koden (en efterbliven
+  räknare får aldrig ge en dubblett), på källhänvisningen (tomma fält
+  lämnar inga skiljetecken efter sig) och på att bara `http` och `https`
+  släpps in i ett `href`.
 - **Högskoleprovssidan** — 35 prov, med tyngdpunkt på tolkningen av data
   databasen inte kontrollerar: skräp in ger en tom men ritbar sida, och
   ett tomt fält blir `null` och inte noll. (`Number("")` är 0 i
