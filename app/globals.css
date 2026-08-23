@@ -11,12 +11,28 @@
    ================================================================== */
 
 :root {
-  /* PALETT — exakt fem värden */
-  --paper: #fdfbef;
-  --panel: #ffffff;
-  --ink: #111111;
-  --accent: #ff5c39;
-  --azure: #3eb8f0;
+  /*
+   * PALETT — exakt fem värden.
+   *
+   * Var och en finns i två former: en kanalvariabel med råa RGB-tal och
+   * en färdig färg byggd av den. Delningen finns för Tailwinds skull:
+   * `border-ink/15` kan bara sättas ihop om färgen går att lägga en
+   * alfakanal på, och det går inte med ett färdigt `var(--ink)`. Utan
+   * kanalerna slutar klassen tyst att finnas, och ramen ritas i
+   * textfärgen med full täckning i stället — ett fel som syns som att
+   * hårstrecken plötsligt är svarta.
+   */
+  --paper-kanal: 253 251 239;
+  --panel-kanal: 255 255 255;
+  --ink-kanal: 17 17 17;
+  --accent-kanal: 255 92 57;
+  --azure-kanal: 62 184 240;
+
+  --paper: rgb(var(--paper-kanal));
+  --panel: rgb(var(--panel-kanal));
+  --ink: rgb(var(--ink-kanal));
+  --accent: rgb(var(--accent-kanal));
+  --azure: rgb(var(--azure-kanal));
 
   /* Kalenderfärger — dämpade ytor, ärvda från arkivets mapptoner.
      Alla ligger över 15:1 mot --ink, så etiketterna är fullt läsbara. */
@@ -1259,8 +1275,8 @@ input.dokdeck:focus {
 .dokrubrik {
   font-family: var(--font-display), Georgia, serif;
   font-weight: 400;
-  font-size: 1.5rem;
-  line-height: 1.25;
+  font-size: 1.8rem;
+  line-height: 1.22;
   overflow-wrap: anywhere;
 }
 
@@ -1603,6 +1619,128 @@ input.dokdeck:focus {
   opacity: 1;
 }
 
+/* ------------------------------------------------------------------
+   BLOCKREDIGERAREN
+
+   Kortet, verktygsraden och ytan finns BARA i redigeringsläget. I
+   läsläget ritas blocken i ett flöde utan ramar — ett dokument med en
+   ram runt varje stycke är ett formulär, hur fint det än är satt.
+   ------------------------------------------------------------------ */
+.blockkort {
+  border: 1px solid rgb(17 17 17 / 0.18);
+  background: var(--panel);
+}
+
+.blockkort[data-redigeras="1"] {
+  border-color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.blockyta {
+  padding: 0.6rem 0.7rem;
+}
+
+/* Verktygsraden syns alltid, inte vid hovring. Ett finger hovrar inte,
+   och en kontroll som bara finns på skrivbordet finns inte. */
+.blockhuvud {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.35rem 0.25rem 0.65rem;
+  border-bottom: 1px solid rgb(17 17 17 / 0.12);
+  background: var(--paper);
+}
+
+/*
+ * Avdelare mellan att FLYTTA blocket och att ändra eller ta bort det.
+ * Fyra likadana knappar i rad läses som en enda grupp, och då blir det
+ * lika lätt att råka radera som att flytta ned.
+ */
+.blockdelare {
+  width: 1px;
+  align-self: stretch;
+  margin: 0.2rem 0.15rem;
+  background: rgb(17 17 17 / 0.16);
+  flex-shrink: 0;
+}
+
+/*
+ * Knapparna är kvadrater med en ram som träder fram vid beröring, inte
+ * en ifylld yta. Fyllningen är i det här formspråket reserverad för
+ * "aktiv", och en knapp som fylls när man bara pekar på den påstår att
+ * något är påslaget.
+ *
+ * min-width och inte width: samma klass används som cellknapp i
+ * tabellredigeringen, där den skall kunna växa med `w-full`.
+ */
+.blockknapp {
+  min-width: 26px;
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 0 0.2rem;
+  line-height: 1;
+  font-size: 0.72rem;
+  opacity: 0.4;
+  transition: opacity 120ms linear, border-color 120ms linear,
+    background-color 120ms linear;
+}
+
+.blockknapp:hover {
+  opacity: 1;
+  border-color: var(--ink);
+  background: var(--panel);
+}
+
+.blockknapp:focus-visible {
+  opacity: 1;
+  border-color: var(--accent);
+  outline: none;
+}
+
+/* Blocket som redigeras just nu — pennan har blivit en bock. */
+.blockknapp[data-aktiv="1"] {
+  opacity: 1;
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.blockknapp:disabled {
+  opacity: 0.14;
+  border-color: transparent;
+  background: transparent;
+}
+
+/* Läsläget: luften mellan blocken gör arbetet som ramarna gjorde. */
+.blockflode > * + * {
+  margin-top: 1.15rem;
+}
+
+/*
+ * Rubrikens luft.
+ *
+ * Före den mer än mellan två stycken, så att den bryter av; efter den
+ * också mer än vanligt, så att den inte klistrar sig i första raden.
+ * Asymmetrin är avsiktlig — avståndet uppåt är större, eftersom en
+ * rubrik hör ihop med det som följer och inte med det som var.
+ */
+.blockflode > .dokrubrik {
+  margin-top: 3rem;
+  margin-bottom: 0;
+}
+
+.blockflode > .dokrubrik + * {
+  margin-top: 1.5rem;
+}
+
+.blockflode > :first-child {
+  margin-top: 0;
+}
+
 @media (max-width: 767px) {
   .brodtext {
     font-size: 1.04rem;
@@ -1611,10 +1749,6 @@ input.dokdeck:focus {
 
   .doktitel {
     font-size: 1.85rem;
-  }
-
-  .dokrubrik {
-    font-size: 1.3rem;
   }
 
   .belaggtext {
@@ -1683,13 +1817,19 @@ input.dokdeck:focus {
     letter-spacing: 0.1em;
   }
 
+  /* Fingerstora träffytor, och ramen syns direkt — utan hovring finns
+     ingen annan signal om att de går att trycka på. */
   .blockknapp {
-    padding: 0.5rem 0.55rem;
-    font-size: 0.8rem;
-    opacity: 0.75;
+    min-width: 38px;
+    min-height: 38px;
+    font-size: 0.85rem;
+    opacity: 0.6;
+    border-color: rgb(17 17 17 / 0.16);
   }
 
-  .blockhuvud {
+
+
+.blockhuvud {
     padding: 0.1rem 0.2rem 0.1rem 0.5rem;
   }
 

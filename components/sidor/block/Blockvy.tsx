@@ -13,6 +13,7 @@
 
 import { useState } from "react";
 import { delaMarkering } from "@/lib/sidor/markering";
+import { markeringstangenter } from "./markeringstangenter";
 import { PERSONER, type Block } from "@/lib/sidor/sprak";
 
 /* ==================================================================
@@ -278,11 +279,12 @@ export function RedigeraBlock({
             placeholder="Skriv fritt. **fet**, *kursiv* och `kod` fungerar."
             value={block.text}
             onChange={(e) => satt({ text: e.target.value })}
+            onKeyDown={markeringstangenter((text) => satt({ text }))}
             aria-label="Text"
             autoFocus
           />
           <p className="pico opacity-40 mt-1">
-            **fet** · *kursiv* · `kod`
+            ⌘B fet · ⌘I kursiv · ⌘E kod
           </p>
         </>
       );
@@ -316,6 +318,7 @@ export function RedigeraBlock({
             placeholder="Text"
             value={block.text}
             onChange={(e) => satt({ text: e.target.value })}
+            onKeyDown={markeringstangenter((text) => satt({ text }))}
             aria-label="Rutans text"
           />
         </div>
@@ -347,6 +350,7 @@ export function RedigeraBlock({
               placeholder="Texten"
               value={block.vanster}
               onChange={(e) => satt({ vanster: e.target.value })}
+              onKeyDown={markeringstangenter((vanster) => satt({ vanster }))}
               aria-label="Vänster text"
             />
             <textarea
@@ -355,6 +359,7 @@ export function RedigeraBlock({
               placeholder="Översättningen"
               value={block.hoger}
               onChange={(e) => satt({ hoger: e.target.value })}
+              onKeyDown={markeringstangenter((hoger) => satt({ hoger }))}
               aria-label="Höger text"
             />
           </div>
@@ -474,6 +479,13 @@ export function RedigeraBlock({
                     ),
                   })
                 }
+                onKeyDown={markeringstangenter((text) =>
+                  satt({
+                    flikar: block.flikar.map((x, j) =>
+                      j === i ? { ...x, text } : x
+                    ),
+                  })
+                )}
                 aria-label={`Flikens text ${i + 1}`}
               />
             </div>
@@ -499,6 +511,7 @@ export function RedigeraBlock({
             placeholder="Citatet"
             value={block.citat}
             onChange={(e) => satt({ citat: e.target.value })}
+            onKeyDown={markeringstangenter((citat) => satt({ citat }))}
             aria-label="Citat"
             autoFocus
           />
@@ -515,6 +528,7 @@ export function RedigeraBlock({
             placeholder="Kommentar — lämnas den tom går citatet i full bredd"
             value={block.kommentar}
             onChange={(e) => satt({ kommentar: e.target.value })}
+            onKeyDown={markeringstangenter((kommentar) => satt({ kommentar }))}
             aria-label="Kommentar"
           />
         </div>

@@ -24,6 +24,7 @@ import Anteckningar from "../components/Anteckningar";
 import Annat from "../components/Annat";
 import Sprak from "../components/sidor/Sprak";
 import Bladtrad from "../components/sidor/block/Bladtrad";
+import Blockredigerare from "../components/sidor/block/Blockredigerare";
 import { normaliseraSida } from "../lib/butik";
 import { SIDOR } from "../components/sidor/register";
 import { STANDARDKALENDRAR } from "../lib/butik";
@@ -490,6 +491,43 @@ prov("privatekonomisidan ritar mätarpanel och tomma lägen", () => {
   // Utan månad skall sidan be om en, inte visa nollor som ser ut som svar.
   innehaller(html, "Ingen månad upplagd");
   innehaller(html, "Sätt ett målbelopp");
+});
+
+prov("läsläget visar inga redigeringsknappar alls", () => {
+  const block = [
+    { id: "1", typ: "rubrik" as const, text: "Konjunktiv" },
+    { id: "2", typ: "text" as const, text: "efter **credo che**" },
+  ];
+  const las = renderToStaticMarkup(
+    h(Blockredigerare, { block, onAndra: tomt, redigera: false })
+  );
+
+  // Innehållet ritas.
+  innehaller(las, "Konjunktiv");
+  innehaller(las, "<strong>credo che</strong>");
+
+  // Men ingenting som redigerar det.
+  for (const krom of [
+    "blockhuvud",
+    "blockknapp",
+    "blockkort",
+    "+ Text",
+    "+ Annat block",
+    "Flytta upp",
+    "Ta bort blocket",
+  ]) {
+    if (las.includes(krom)) {
+      throw new Error(`läsläget läckte redigering: ${krom}`);
+    }
+  }
+
+  // Och i redigeringsläget skall allt finnas.
+  const red = renderToStaticMarkup(
+    h(Blockredigerare, { block, onAndra: tomt, redigera: true })
+  );
+  innehaller(red, "blockhuvud");
+  innehaller(red, "+ Text");
+  innehaller(red, 'aria-label="Flytta upp"');
 });
 
 prov("mobilen kan bläddra, växla sida och nå paletten", () => {

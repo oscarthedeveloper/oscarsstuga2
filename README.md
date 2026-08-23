@@ -14,7 +14,7 @@ hörnparenteser och kolofonremsor. Inga rundade hörn, ingen grotesk.
 ```
 npm install
 npm run dev      # http://localhost:3000
-npm test         # 290 prov: upprepningar, kalendrar, uppgifter, layout, tolk,
+npm test         # 304 prov: upprepningar, kalendrar, uppgifter, layout, tolk,
                  #            sök, kopplingar, högskoleprov, språk, fornsvenska,
                  #            ekonomi, synk, vyer
 npm run typecheck
@@ -363,11 +363,35 @@ Tre är gjorda för språkstudier snarare än för dokumentation:
   paralleltext utan två texter, och hela poängen är att kunna kasta
   blicken i sidled. Löptexten går ned i grad i stället.
 
-Blocken läses förvalt och redigeras på knapptryck, inte på klick i
-texten. Ett stycke som blir ett textfält när man klickar i det går inte
-att markera med musen, och på en telefon blir varje rullning en risk att
-öppna fel block. Nya block öppnas däremot direkt — där finns ingenting
-att läsa ännu.
+**Bladet har två lägen.** I läsläget finns ingen redigering alls: inga
+verktygsrader, inga kortramar, ingen blockväljare, ingen raderaknapp.
+Titeln är en `<h1>` och inte ett fält — ett fält som ser ut som en rubrik
+är ändå ett fält, markören hamnar i det och skärmläsaren säger
+"inmatning" där det står en rubrik. Utkastmärket blir en etikett.
+
+Växlaren sitter uppe till höger, och **Esc** lämnar redigeringsläget
+(dock inte medan markören står i ett fält, där tangenten ofta betyder
+något annat). Läget hör till sessionen och inte till bladet: är man mitt
+i en skrivstund skall ett byte från *Dativ* till *Genitiv* inte kasta
+tillbaka en till läsläge vid varje klick i trädet. Ett **nytt** blad
+öppnas i redigeringsläge — där finns ingenting att läsa.
+
+I redigeringsläget fungerar **⌘B**, **⌘I** och **⌘E** i alla textfält som
+bär markering — fet, kursiv och kod. De **växlar**: ett andra tryck tar
+bort markeringen igen, annars staplas tecknen till `****ord****`.
+
+Det svåra är att stjärnorna löper ihop. I Markdown betyder löpans längd
+olika saker — `*ord*` kursiv, `**ord**` fet, `***ord***` båda — så
+växlingen räknar löpan i stället för att titta på om tecknet står
+bredvid: kursiv finns om löpan är udda, fet om den är minst två. Utan
+det gör ⌘I på fet text den kursiv i stället för fet **och** kursiv.
+
+Inne i redigeringsläget syns varje blocks verktygsrad hela tiden, inte
+vid hovring. Ett finger hovrar inte. Det är just därför lägena behövs:
+knappar som alltid syns är rätt medan man skriver och fel medan man
+läser, och samma yta kan inte vara båda. Blocken redigeras på knapptryck
+och inte på klick i texten — ett stycke som blir ett textfält när man
+klickar i det går inte att markera med musen.
 
 **Omslagen ligger i en egen lagerpost.** Sidan sparas medan du skriver,
 och låg bilderna i samma post som texten skulle varenda omslag skickas
@@ -583,6 +607,37 @@ skillnaden läses direkt i stället för över ett mellanrum.
 Genomgående skiljs **noll från okänt**. En ofylld kategori räknas inte in
 i en summa som ser färdig ut, och utan ifylld inkomst är "kvar att
 fördela" okänt — inte noll, som hade sett ut som ett svar.
+
+## Färgerna och genomskinligheten
+
+Paletten finns i **två former**: en kanalvariabel med råa RGB-tal och en
+färdig färg byggd av den.
+
+```css
+--ink-kanal: 17 17 17;
+--ink: rgb(var(--ink-kanal));
+```
+
+Delningen finns för Tailwinds skull. `border-ink/15` kan bara sättas ihop
+om färgen går att lägga en alfakanal på, och det går inte med ett färdigt
+`var(--ink)` — då genereras klassen **inte alls**, tyst, och ramen ritas i
+textfärgen med full täckning i stället. Felet syns som att hårstrecken
+plötsligt är svarta, och det var så det låg i tolv fall innan det
+upptäcktes.
+
+Tailwinds opacitetsskala saknar dessutom `12`. Håll dig till `10`, `15`,
+`20` och så vidare, eller skriv `border-ink/[0.12]`.
+
+**Kontrollera med den här skanningen** när något ser fel ut:
+
+```
+npx tailwindcss -i app/globals.css -o /tmp/ut.css \
+  --content "./components/**/*.tsx,./app/**/*.tsx"
+```
+
+och jämför sedan varje `className`-symbol mot utdatan. En klass som inte
+finns där har ingen stil — och till skillnad från ett typfel säger
+ingenting ifrån.
 
 ## Ett CSS-lager värt att känna till
 

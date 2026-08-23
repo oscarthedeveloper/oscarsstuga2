@@ -32,7 +32,12 @@ import {
   TOM_SPRAK,
   type SprakData,
 } from "../lib/sidor/sprak";
-import { delaMarkering, renText } from "../lib/sidor/markering";
+import {
+  delaMarkering,
+  renText,
+  teckenForTangent,
+  vaxlaMarkering,
+} from "../lib/sidor/markering";
 import { dataUrlByte } from "../lib/bild";
 
 let antal = 0;
@@ -302,6 +307,90 @@ prov("tom text ger inga bitar", () => {
 
 prov("ren text tar bort tecknen", () => {
   lika(renText("**credo** che *sia* `bene`"), "credo che sia bene");
+});
+
+/* --- tangentkommandon --------------------------------------------- */
+
+/** Kortform: "a[bc]d" betyder markering runt bc. */
+function vaxla(rå: string, tecken: string) {
+  const start = rå.indexOf("[");
+  const slut = rå.indexOf("]") - 1;
+  const text = rå.replace("[", "").replace("]", "");
+  const ut = vaxlaMarkering(text, start, slut, tecken);
+  return (
+    ut.text.slice(0, ut.start) +
+    "[" +
+    ut.text.slice(ut.start, ut.slut) +
+    "]" +
+    ut.text.slice(ut.slut)
+  );
+}
+
+prov("tangenterna svarar mot rätt tecken", () => {
+  lika(teckenForTangent("b"), "**");
+  lika(teckenForTangent("B"), "**", "skiftläge spelar ingen roll");
+  lika(teckenForTangent("i"), "*");
+  lika(teckenForTangent("e"), "`");
+  lika(teckenForTangent("k"), null, "⌘K är palettens");
+  lika(teckenForTangent("z"), null);
+});
+
+prov("markering omsluter urvalet och behåller det", () => {
+  lika(vaxla("ett [ord] till", "**"), "ett **[ord]** till");
+  lika(vaxla("ett [ord] till", "*"), "ett *[ord]* till");
+  lika(vaxla("ett [ord] till", "`"), "ett `[ord]` till");
+});
+
+prov("andra trycket tar bort markeringen", () => {
+  // Urvalet ligger INUTI stjärnorna, vilket är vad man får när man
+  // dubbelklickar på ordet. Utan det här fallet staplas tecknen till
+  // ****ord**** i stället för att växla.
+  lika(vaxla("ett **[ord]** till", "**"), "ett [ord] till");
+  lika(vaxla("ett *[ord]* till", "*"), "ett [ord] till");
+});
+
+prov("markeringen tas bort även när stjärnorna är med i urvalet", () => {
+  lika(vaxla("ett [**ord**] till", "**"), "ett [ord] till");
+});
+
+prov("utan urval sätts ett tomt par ut med markören emellan", () => {
+  lika(vaxla("ett []till", "**"), "ett **[]**till");
+});
+
+prov("fet och kursiv går att kombinera", () => {
+  const ett = vaxla("ett [ord] till", "**");
+  lika(ett, "ett **[ord]** till");
+  lika(vaxla(ett, "*"), "ett ***[ord]*** till");
+});
+
+prov("växlingen rör inte texten utanför urvalet", () => {
+  lika(vaxla("**redan** [ny] text", "**"), "**redan** **[ny]** text");
+});
+
+prov("kursiv på fet blir fet OCH kursiv, inte bara kursiv", () => {
+  // Löpan är två, alltså fet. Kursiven skall LÄGGAS TILL. Utan
+  // löperäkningen ser växlingen ett ensamt * på var sida, tror att
+  // kursiven redan finns, och tar bort ett tecken — så att fetstilen
+  // blir kursiv i stället.
+  lika(vaxla("ett **[ord]** till", "*"), "ett ***[ord]*** till");
+});
+
+prov("fet av på fet-och-kursiv lämnar kursiven kvar", () => {
+  lika(vaxla("ett ***[ord]*** till", "**"), "ett *[ord]* till");
+});
+
+prov("kursiv av på fet-och-kursiv lämnar fetstilen kvar", () => {
+  lika(vaxla("ett ***[ord]*** till", "*"), "ett **[ord]** till");
+});
+
+prov("kod bryr sig inte om löpor", () => {
+  lika(vaxla("ett [ord] till", "`"), "ett `[ord]` till");
+  lika(vaxla("ett `[ord]` till", "`"), "ett [ord] till");
+});
+
+prov("markering i början och slutet av texten", () => {
+  lika(vaxla("[först] sedan", "**"), "**[först]** sedan");
+  lika(vaxla("först [sist]", "**"), "först **[sist]**");
 });
 
 /* --- bilden ------------------------------------------------------- */

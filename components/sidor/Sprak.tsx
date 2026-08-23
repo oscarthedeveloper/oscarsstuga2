@@ -112,6 +112,15 @@ export default function Sprak({
   /* Vilken hylla som har sin inställningspanel utfälld, och vilka som
      visar alla sina mappar i stället för en rad. */
   const [hanterarId, setHanterarId] = useState<string | null>(null);
+  /*
+   * Läsläge eller redigeringsläge.
+   *
+   * Läget hör till SESSIONEN och inte till bladet. Är man mitt i en
+   * skrivstund skall ett byte från Dativ till Genitiv inte kasta
+   * tillbaka en till läsläge vid varje klick i trädet. Vid omladdning
+   * börjar man däremot i läsläge — det är så man oftast öppnar ett blad.
+   */
+  const [redigerar, setRedigerar] = useState(false);
   const [utfallda, setUtfallda] = useState<string[]>([]);
 
   const mapp = mappMed(form, mappId);
@@ -190,6 +199,8 @@ export default function Sprak({
       ],
     }));
     setBladId(id);
+    // Ett tomt blad har ingenting att läsa.
+    setRedigerar(true);
   };
 
   const andraBlad = (id: string, delar: Partial<Blad>) =>
@@ -197,6 +208,27 @@ export default function Sprak({
       ...d,
       blad: d.blad.map((b) => (b.id === id ? { ...b, ...delar } : b)),
     }));
+
+  /* Escape lämnar redigeringsläget — men inte medan man skriver i ett
+     fält, där tangenten ofta betyder något annat för webbläsaren. */
+  useEffect(() => {
+    if (!redigerar) return;
+    const paTangent = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      const mal = e.target as HTMLElement | null;
+      if (
+        mal &&
+        (mal.tagName === "INPUT" ||
+          mal.tagName === "TEXTAREA" ||
+          mal.tagName === "SELECT")
+      ) {
+        return;
+      }
+      setRedigerar(false);
+    };
+    window.addEventListener("keydown", paTangent);
+    return () => window.removeEventListener("keydown", paTangent);
+  }, [redigerar]);
 
   /* ---------------------------------------------------------------
      Omslagsval
@@ -471,74 +503,116 @@ export default function Sprak({
                         </span>
                       </nav>
                       <span className="flex-1" />
-                      {/* Utkastmärket går att slå av och på genom att
-                          tryckas — ett tillstånd man byter ofta skall
-                          inte ligga bakom en inställningspanel. */}
+
+                      {/* I läsläget är märket en etikett. Att kunna
+                          ändra bladets tillstånd medan man läser hör
+                          till redigerandet, inte till läsandet. */}
+                      {redigerar ? (
+                        <button
+                          type="button"
+                          className="dokmarke shrink-0"
+                          style={blad.utkast ? undefined : { opacity: 0.35 }}
+                          onClick={() =>
+                            andraBlad(blad.id, { utkast: !blad.utkast })
+                          }
+                          title={
+                            blad.utkast
+                              ? "Markera som färdigt"
+                              : "Markera som utkast"
+                          }
+                        >
+                          {blad.utkast ? "Utkast" : "Färdigt"}
+                        </button>
+                      ) : (
+                        blad.utkast && (
+                          <span className="dokmarke shrink-0">Utkast</span>
+                        )
+                      )}
+
                       <button
                         type="button"
-                        className="dokmarke shrink-0"
-                        style={blad.utkast ? undefined : { opacity: 0.35 }}
-                        onClick={() =>
-                          andraBlad(blad.id, { utkast: !blad.utkast })
-                        }
+                        className="knapp micro shrink-0"
+                        data-aktiv={redigerar ? "1" : "0"}
+                        onClick={() => setRedigerar((v) => !v)}
                         title={
-                          blad.utkast
-                            ? "Markera som färdigt"
-                            : "Markera som utkast"
+                          redigerar
+                            ? "Lämna redigeringsläget (Esc)"
+                            : "Redigera bladet"
                         }
                       >
-                        {blad.utkast ? "Utkast" : "Färdigt"}
+                        {redigerar ? "✓ Klar" : "✎ Redigera"}
                       </button>
                     </div>
 
-                    <input
-                      className="doktitel mb-2"
-                      value={blad.titel}
-                      onChange={(e) =>
-                        andraBlad(blad.id, { titel: e.target.value })
-                      }
-                      placeholder="Rubrik"
-                      aria-label="Bladets rubrik"
-                    />
-                    <input
-                      className="dokdeck"
-                      value={blad.underrubrik}
-                      onChange={(e) =>
-                        andraBlad(blad.id, { underrubrik: e.target.value })
-                      }
-                      placeholder="Underrubrik"
-                      aria-label="Underrubrik"
-                    />
+                    {/* Titeln är en rubrik när man läser och ett fält när
+                        man skriver. Ett fält som ser ut som en rubrik är
+                        ändå ett fält: markören hamnar i det, texten går
+                        att råka ändra, och skärmläsaren säger "inmatning"
+                        där det står en rubrik. */}
+                    {redigerar ? (
+                      <>
+                        <input
+                          className="doktitel mb-2"
+                          value={blad.titel}
+                          onChange={(e) =>
+                            andraBlad(blad.id, { titel: e.target.value })
+                          }
+                          placeholder="Rubrik"
+                          aria-label="Bladets rubrik"
+                        />
+                        <input
+                          className="dokdeck"
+                          value={blad.underrubrik}
+                          onChange={(e) =>
+                            andraBlad(blad.id, { underrubrik: e.target.value })
+                          }
+                          placeholder="Underrubrik"
+                          aria-label="Underrubrik"
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <h1 className="doktitel mb-2">
+                          {blad.titel || "Namnlöst"}
+                        </h1>
+                        {blad.underrubrik && (
+                          <p className="dokdeck">{blad.underrubrik}</p>
+                        )}
+                      </>
+                    )}
                   </div>
 
                   {/* Blocken */}
                   <Blockredigerare
                     block={blad.block}
                     onAndra={(block) => andraBlad(blad.id, { block })}
+                    redigera={redigerar}
                   />
 
-                  <div className="mt-6 pt-3 border-t border-ink/15 flex">
-                    <span className="flex-1" />
-                    <button
-                      type="button"
-                      className="knapp pico"
-                      onClick={() => {
-                        if (
-                          window.confirm(
-                            `Ta bort ${blad.titel || "bladet"}? Går att ångra med ⌘Z.`
-                          )
-                        ) {
-                          setBladId(null);
-                          andra((d) => ({
-                            ...d,
-                            blad: d.blad.filter((x) => x.id !== blad.id),
-                          }));
-                        }
-                      }}
-                    >
-                      Radera bladet
-                    </button>
-                  </div>
+                  {redigerar && (
+                    <div className="mt-6 pt-3 border-t border-ink/15 flex">
+                      <span className="flex-1" />
+                      <button
+                        type="button"
+                        className="knapp pico"
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              `Ta bort ${blad.titel || "bladet"}? Går att ångra med ⌘Z.`
+                            )
+                          ) {
+                            setBladId(null);
+                            andra((d) => ({
+                              ...d,
+                              blad: d.blad.filter((x) => x.id !== blad.id),
+                            }));
+                          }
+                        }}
+                      >
+                        Radera bladet
+                      </button>
+                    </div>
+                  )}
                 </div>
               </article>
             ) : (

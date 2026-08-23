@@ -3,16 +3,22 @@
 /**
  * Bladets blocklista.
  *
- * Varje block bär sin egen verktygsrad — flytta, redigera, ta bort —
- * och raden syns alltid. Att gömma den bakom hovring är att gömma den
- * helt på en telefon, där hälften av skrivandet sker.
+ * TVÅ LÄGEN. I läsläget finns ingen redigering alls — inga
+ * verktygsrader, inga kortramar, ingen blockväljare. Bladet är då ett
+ * dokument och ingenting annat. I redigeringsläget kommer allt fram.
+ *
+ * Verktygsraden göms inte bakom hovring inne i redigeringsläget, utan
+ * syns hela tiden. Ett finger hovrar inte, och en kontroll som bara
+ * finns på skrivbordet finns inte. Det är just därför lägena behövs:
+ * knappar som alltid syns är rätt medan man skriver och fel medan man
+ * läser, och samma yta kan inte vara båda.
  *
  * Nya block öppnas direkt i redigeringsläge. Det är hela skillnaden
  * mellan att lägga till ett block och att lägga till ett block OCH
  * sedan leta rätt på pennan.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   BLOCKNAMN,
   flytta,
@@ -26,12 +32,25 @@ import { RedigeraBlock, VisaBlock } from "./Blockvy";
 export default function Blockredigerare({
   block,
   onAndra,
+  redigera,
 }: {
   block: Block[];
   onAndra(block: Block[]): void;
+  /** Falskt = läsläge. Ingen redigering ritas alls. */
+  redigera: boolean;
 }) {
   const [redigerad, setRedigerad] = useState<string | null>(null);
   const [meny, setMeny] = useState(false);
+
+  /* Lämnar man redigeringsläget skall inget block ligga kvar öppet —
+     annars står ett halvskrivet fält kvar och väntar nästa gång man
+     slår på redigeringen, på ett blad man kanske inte ens är kvar i. */
+  useEffect(() => {
+    if (!redigera) {
+      setRedigerad(null);
+      setMeny(false);
+    }
+  }, [redigera]);
 
   const laggTill = (typ: Blockslag) => {
     const id = nyId();
@@ -42,6 +61,20 @@ export default function Blockredigerare({
 
   const namnFor = (typ: Blockslag) =>
     BLOCKNAMN.find((b) => b.typ === typ)?.namn ?? typ;
+
+  if (!redigera) {
+    return (
+      <div className="blockflode">
+        {block.length === 0 ? (
+          <p className="pico opacity-45 py-3 leading-relaxed">
+            Tomt blad. Tryck Redigera för att börja skriva.
+          </p>
+        ) : (
+          block.map((b) => <VisaBlock key={b.id} block={b} />)
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-2">
@@ -83,9 +116,11 @@ export default function Blockredigerare({
               >
                 ↓
               </button>
+              <span className="blockdelare" aria-hidden="true" />
               <button
                 type="button"
                 className="blockknapp"
+                data-aktiv={redigeras ? "1" : "0"}
                 onClick={() => setRedigerad(redigeras ? null : b.id)}
                 aria-label={redigeras ? "Klar" : "Redigera blocket"}
                 title={redigeras ? "Klar" : "Redigera"}

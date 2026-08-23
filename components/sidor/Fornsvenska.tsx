@@ -561,7 +561,7 @@ function Verkrad({
       </div>
 
       {oppen && (
-        <div className="px-2.5 pb-3 flex flex-col gap-2 border-t border-ink/12 pt-2.5">
+        <div className="px-2.5 pb-3 flex flex-col gap-2 border-t border-ink/10 pt-2.5">
           <div className="flex flex-col md:flex-row gap-2">
             <input
               className="falt flex-1"
