@@ -20,6 +20,7 @@ import Hogskoleprov from "./Hogskoleprov";
 import Sprak from "./Sprak";
 import Fornsvenska from "./Fornsvenska";
 import Privatekonomi from "./Privatekonomi";
+import Viner from "./Viner";
 
 export interface SidProps {
   /** Sidans sparade innehåll, eller null om den aldrig fyllts i. */
@@ -60,10 +61,19 @@ export const SIDOR: SidDefinition[] = [
     Komponent: Fornsvenska,
   },
   {
+    id: "viner",
+    titel: "Mina viner",
+    kort: "VIN",
+    beskrivning:
+      "Samling och smakminne — källare, smakprofiler, betyg och diagram",
+    Komponent: Viner,
+  },
+  {
     id: "privatekonomi",
     titel: "Privatekonomi",
     kort: "EK",
-    beskrivning: "Månadsplanering före löning — kategorier, utfall och sparmål",
+    beskrivning:
+      "Månadsplanering före löning — kategorier, utfall, inköp, abonnemang och sparmål",
     Komponent: Privatekonomi,
   },
 ];

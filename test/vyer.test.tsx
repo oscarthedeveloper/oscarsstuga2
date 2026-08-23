@@ -23,8 +23,15 @@ import AttGora from "../components/AttGora";
 import Anteckningar from "../components/Anteckningar";
 import Annat from "../components/Annat";
 import Sprak from "../components/sidor/Sprak";
+import Viner from "../components/sidor/Viner";
+import Betygsmatare from "../components/sidor/block/Betygsmatare";
+import Delstapel from "../components/sidor/block/Delstapel";
+import Punktdiagram from "../components/sidor/block/Punktdiagram";
+import Smakskala from "../components/sidor/block/Smakskala";
+import Vinuppslag from "../components/sidor/block/Vinuppslag";
 import Bladtrad from "../components/sidor/block/Bladtrad";
 import Blockredigerare from "../components/sidor/block/Blockredigerare";
+import { tolkaVinData } from "../lib/sidor/viner";
 import { normaliseraSida } from "../lib/butik";
 import { SIDOR } from "../components/sidor/register";
 import { STANDARDKALENDRAR } from "../lib/butik";
@@ -420,6 +427,294 @@ prov("varje språk får en egen rad med sina mappar", () => {
   innehaller(html, "hyllrad");
   // Mappen utan omslag ritas som en mapp.
   innehaller(html, "Mapp utan omslag");
+});
+
+prov("vinsidan ritar sina avsnitt utan data", () => {
+  const html = renderToStaticMarkup(
+    h(ButikProvider, null, h(Annat, { oppnaId: "viner" }))
+  );
+  for (const rubrik of ["Vinerna", "Fördelning", "Betyg mot pris", "Smakkarta"]) {
+    innehaller(html, rubrik);
+  }
+  /*
+   * Ingenting sås. Varje diagram står tomt och säger VARFÖR det är tomt
+   * i stället för att rita en axel utan punkter — en tom ruta ser ut som
+   * något som gått sönder, en mening gör det inte.
+   */
+  innehaller(html, "Registret är tomt");
+  innehaller(html, "Inga viner att dela upp ännu");
+  innehaller(html, "Ett vin kommer med när det har både pris och betyg");
+});
+
+prov("vinsidan ritar registret, mätarna och diagrammen", () => {
+  const sida = normaliseraSida({
+    id: "viner",
+    data: {
+      nastaKod: 3,
+      viner: [
+        {
+          id: "a",
+          kod: "VIN-001",
+          namn: "Mucho Más Tinto",
+          producent: "Félix Solís",
+          argang: "N.V.",
+          land: "Spanien",
+          typ: "rott",
+          druvor: ["Tempranillo"],
+          lage: "har",
+          antal: 3,
+          pris: 89,
+          egetBetyg: 4,
+          vivinoBetyg: 3.7,
+          profil: { fyllighet: 70, stravhet: 34, sotma: 38, syra: 28 },
+          smaknoter: [
+            { id: "n1", ord: "Vanilj, ek, tobak", grupp: "fatad", antal: 1511 },
+          ],
+        },
+        {
+          id: "b",
+          kod: "VIN-002",
+          namn: "Chablis",
+          producent: "William Fèvre",
+          argang: "2021",
+          land: "Frankrike",
+          typ: "vitt",
+          lage: "drucken",
+          pris: 249,
+          vivinoBetyg: 4.1,
+          profil: { fyllighet: 40, stravhet: 20, sotma: 10, syra: 82 },
+        },
+      ],
+    },
+  });
+  const html = renderToStaticMarkup(
+    h(ButikProvider, null, h(Viner, { sida, spara: tomt }))
+  );
+
+  // Producenten fogas till namnet, och årgången sist.
+  innehaller(html, "Félix Solís Mucho Más Tinto N.V.");
+  innehaller(html, "VIN-001");
+  // Källarens värde: 89 × 3. Det druckna vinet räknas inte.
+  innehaller(html, "Källarens värde");
+  innehaller(html, "267");
+  // Fördelningsstapeln ritas med sina segment, inte som en tom ram.
+  innehaller(html, "fordelning");
+  innehaller(html, "Rött");
+  innehaller(html, "Vitt");
+  // Båda punktdiagrammen har fått punkter — en <title> per vin.
+  innehaller(html, "Lätt");
+  innehaller(html, "Fyllig");
+});
+
+prov("ett vin utan uppgifter online räknas inte som ofyllt", () => {
+  /*
+   * Sidans "återstår att göra" är viner utan smakprofil. Ett vin som
+   * INTE går att slå upp skall kunna säga det och därmed lämna listan —
+   * annars blir det en påminnelse om ett arbete som aldrig kan bli
+   * gjort, varje gång man öppnar sidan.
+   */
+  const utan = normaliseraSida({
+    id: "viner",
+    data: { viner: [{ id: "a", namn: "Okänd flaska", lage: "vill" }] },
+  });
+  const med = normaliseraSida({
+    id: "viner",
+    data: {
+      viner: [
+        { id: "a", namn: "Okänd flaska", lage: "vill", uppgifterSaknas: true },
+      ],
+    },
+  });
+  const ett = renderToStaticMarkup(
+    h(ButikProvider, null, h(Viner, { sida: utan, spara: tomt }))
+  );
+  const noll = renderToStaticMarkup(
+    h(ButikProvider, null, h(Viner, { sida: med, spara: tomt }))
+  );
+  innehaller(ett, 'data-atgard="1"');
+  if (noll.includes('data-atgard="1"')) {
+    throw new Error("ett vin märkt som omöjligt att slå upp bär fortfarande accent");
+  }
+});
+
+prov("vinsidans block ritar i redigeringsläge", () => {
+  /*
+   * Den utfällda vinraden går inte att öppna i ett statiskt ritprov —
+   * den öppnas av ett klick. Blocken den består av ritas därför var för
+   * sig i sitt REDIGERINGSLÄGE, vilket är där de skiljer sig mest från
+   * visningsläget och där ett fel annars bara visar sig i webbläsaren.
+   */
+  const skala = renderToStaticMarkup(
+    h(Smakskala, {
+      profil: { fyllighet: 70, stravhet: null, sotma: 38, syra: 28 },
+      ton: 2,
+      onVarde: tomt,
+    })
+  );
+  innehaller(skala, "Lätt");
+  innehaller(skala, "Fyllig");
+  innehaller(skala, "smakreglage");
+  // En ofylld skala ritas som raster, inte som ett tomt spår: "ingen
+  // uppgift" och "noll på skalan" får inte se likadana ut.
+  innehaller(skala, 'data-tomt="1"');
+
+  const betyg = renderToStaticMarkup(
+    h(Betygsmatare, { varde: 3.7, onVarde: tomt, etikett: "provet", storlek: "stor" })
+  );
+  // Talet står alltid skrivet — skillnaden mellan 3,6 och 3,8 syns inte
+  // i en cell men är hela skillnaden mellan två viner.
+  innehaller(betyg, "3,7");
+  innehaller(betyg, "betygscell");
+
+  // Ett tomt betyg ritar fem tomma celler och ett streck, inte noll.
+  innehaller(
+    renderToStaticMarkup(h(Betygsmatare, { varde: null, etikett: "tomt" })),
+    "—"
+  );
+
+  const stapel = renderToStaticMarkup(
+    h(Delstapel, {
+      delar: [
+        { id: "a", namn: "Spanien", antal: 4, ton: 2 },
+        { id: "b", namn: "Frankrike", antal: 1, ton: 0 },
+      ],
+      tomText: "tomt",
+    })
+  );
+  innehaller(stapel, "Spanien");
+  innehaller(stapel, "80 %");
+
+  const diagram = renderToStaticMarkup(
+    h(Punktdiagram, {
+      punkter: [
+        { id: "a", etikett: "Ett vin", x: 89, y: 4, ton: 2, framhavd: true },
+      ],
+      xAxel: { lag: "Billigt", hog: "Dyrt", min: 0, max: 600 },
+      yAxel: { lag: "Lågt", hog: "Högt", min: 0, max: 5 },
+      tomText: "tomt",
+    })
+  );
+  innehaller(diagram, "Ett vin");
+  innehaller(diagram, "Billigt");
+});
+
+prov("ett diagram med ett enda värde ritar ändå", () => {
+  /*
+   * Ett spann på noll ger division med noll, och ett NaN i ett
+   * SVG-attribut ritar TYST ingenting alls — inget felmeddelande, bara
+   * en tom ruta man får leta efter i en timme.
+   */
+  const html = renderToStaticMarkup(
+    h(Punktdiagram, {
+      punkter: [{ id: "a", etikett: "Ensam", x: 5, y: 5, ton: 0, framhavd: false }],
+      xAxel: { lag: "a", hog: "b", min: 5, max: 5 },
+      yAxel: { lag: "c", hog: "d", min: 5, max: 5 },
+      tomText: "tomt",
+    })
+  );
+  innehaller(html, "Ensam");
+  if (html.includes("NaN")) throw new Error("ett NaN kom med i utdata");
+});
+
+prov("vinuppslaget ritar ett färdigt uppslag utan fält", () => {
+  /*
+   * Läsläget. Poängen är just att det INTE finns några fält — ett fält
+   * som ser ut som en färdig sida är ändå ett fält: markören hamnar i
+   * det, texten går att råka ändra, och skärmläsaren säger "inmatning"
+   * där det står ett värde.
+   */
+  const vin = tolkaVinData({
+    viner: [
+      {
+        id: "a",
+        namn: "Mucho Más Tinto",
+        producent: "Félix Solís",
+        argang: "N.V.",
+        land: "Spanien",
+        region: "La Mancha",
+        typ: "rott",
+        druvor: ["Shiraz/Syrah", "Tempranillo"],
+        alkohol: 13.5,
+        lage: "har",
+        antal: 3,
+        pris: 89,
+        egetBetyg: 4,
+        vivinoBetyg: 3.7,
+        vivinoAntal: 8503,
+        profil: { fyllighet: 70, stravhet: 34, sotma: 38, syra: 28 },
+        smaknoter: [
+          { id: "n1", ord: "Vanilj, ek, tobak", grupp: "fatad", antal: 1511 },
+        ],
+        passarTill: ["nötkött", "pasta"],
+        beskrivning: "Fruktigt men djupt fylligt.",
+        anteckning: "Till lammet i somras.",
+      },
+    ],
+  }).viner[0];
+
+  const html = renderToStaticMarkup(h(Vinuppslag, { vin }));
+
+  // Faktatabellen, med etikett och värde.
+  innehaller(html, "Producent");
+  innehaller(html, "Félix Solís");
+  innehaller(html, "Ursprung");
+  innehaller(html, "Spanien / La Mancha");
+  innehaller(html, "3 flaskor");
+  // Betyg, smakprofil, noter och båda texterna.
+  innehaller(html, "3,7");
+  innehaller(html, "8 503 rec.");
+  innehaller(html, "Fyllig");
+  innehaller(html, "Vanilj, ek, tobak");
+  innehaller(html, "1 511 kommentarer om fatad toner");
+  innehaller(html, "Till lammet i somras.");
+  // Ni är oense med 0,3 — under tröskeln, alltså inget band.
+  if (html.includes("Du tyckte")) {
+    throw new Error("oense-raden ritades trots att skillnaden är brus");
+  }
+  // Och ingenting som tar emot inmatning.
+  for (const tagg of ["<input", "<textarea", "<select"]) {
+    if (html.includes(tagg)) throw new Error(`läsläget ritade ${tagg}`);
+  }
+});
+
+prov("ett tomt vin säger att det är tomt", () => {
+  // Ett visningsläge som ritar en tom yta ser trasigt ut. Det skall
+  // säga vad som saknas och peka på knappen som rättar det.
+  const vin = tolkaVinData({ viner: [{ id: "a" }] }).viner[0];
+  const html = renderToStaticMarkup(h(Vinuppslag, { vin }));
+  innehaller(html, "Ingenting ifyllt ännu");
+  innehaller(html, "Redigera");
+});
+
+prov("ett vin utan smakprofil får ingen tom mätare", () => {
+  /*
+   * Fyra tomma spår under rubriken "Hur smakar detta vin?" ser ut som
+   * ett fel. Är vinet märkt som omöjligt att slå upp säger uppslaget
+   * det i ord; är det bara ofyllt utelämnas avsnittet helt, eftersom
+   * det inte finns något att läsa där ännu.
+   */
+  const saknas = tolkaVinData({
+    viner: [{ id: "a", namn: "Okänd flaska", uppgifterSaknas: true }],
+  }).viner[0];
+  const saknasHtml = renderToStaticMarkup(h(Vinuppslag, { vin: saknas }));
+  innehaller(saknasHtml, "går inte att slå upp");
+
+  const ofylld = tolkaVinData({
+    viner: [{ id: "a", namn: "Ofylld flaska" }],
+  }).viner[0];
+  const ofylldHtml = renderToStaticMarkup(h(Vinuppslag, { vin: ofylld }));
+  if (ofylldHtml.includes("Hur smakar detta vin")) {
+    throw new Error("rubrik utan mätare att sätta under den");
+  }
+});
+
+prov("uppslaget skriver ut åt vilket håll ni är oense", () => {
+  // Vilken av två siffror som är "bättre" skall inte behöva räknas ut
+  // av den som läser.
+  const vin = tolkaVinData({
+    viner: [{ id: "a", namn: "Chablis", egetBetyg: 3.2, vivinoBetyg: 4.1 }],
+  }).viner[0];
+  innehaller(renderToStaticMarkup(h(Vinuppslag, { vin })), "Du tyckte sämre");
 });
 
 prov("trädsidlisten visar hela hyllan med filsystemets vokabulär", () => {

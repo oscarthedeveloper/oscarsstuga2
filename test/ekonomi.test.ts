@@ -9,19 +9,29 @@
  */
 
 import {
+  abonnemangIManad,
+  abonnemangPerAr,
+  abonnemangsKostnad,
   andelAvInkomst,
   avvikelse,
+  dras,
   foregaendeManad,
   framsteg,
   genomsnittligtSparande,
   harUtfall,
+  inkopFor,
+  inkopIManad,
+  inkopPerKategori,
+  klamManad,
   kronor,
   kronorMedTecken,
   kvarAttFordela,
+  manadAvDatum,
   manadUrMall,
   manadsNyckel,
   manadsText,
   motForegaende,
+  nastaDragning,
   nastaLedigaManad,
   nastaManad,
   procent,
@@ -29,6 +39,7 @@ import {
   sparandePlan,
   sparandeUtfall,
   sparkvot,
+  summaInkop,
   summaPlan,
   summaUtfall,
   tolkaEkonomiData,
@@ -97,6 +108,19 @@ const DATA: EkonomiData = tolkaEkonomiData({
     ],
   },
   mal: { namn: "Buffert", belopp: 100000, start: 55000 },
+  inkop: [
+    { id: "i1", datum: "2026-08-03", namn: "Airpods Pro", belopp: 2500, kategoriId: "noje" },
+    { id: "i2", datum: "2026-08-19", namn: "Kläder på HM", belopp: 2000, kategoriId: "noje" },
+    { id: "i3", datum: "2026-08-11", namn: "Vinterdäck", belopp: 4800, kategoriId: "behov" },
+    { id: "i4", datum: "2026-08-07", namn: "Present", belopp: 300, kategoriId: "" },
+    { id: "i5", datum: "2026-07-22", namn: "Skrivbordslampa", belopp: 900, kategoriId: "behov" },
+  ],
+  abonnemang: [
+    { id: "a1", namn: "Claude Pro", belopp: 250, period: "manad", dragManad: 1, aktiv: true },
+    { id: "a2", namn: "Headway", belopp: 250, period: "ar", dragManad: 3, aktiv: true },
+    { id: "a3", namn: "Spotify", belopp: 119, period: "manad", dragManad: 1, aktiv: false },
+    { id: "a4", namn: "Domän", belopp: 180, period: "ar", dragManad: 8, aktiv: true },
+  ],
 });
 
 const AUG = DATA.manader[1];
@@ -354,6 +378,160 @@ prov("utfall följer aldrig med från mallen", () => {
 prov("nästa lediga månad", () => {
   lika(nastaLedigaManad(DATA, new Date(2026, 7, 12)), "2026-09");
   lika(nastaLedigaManad(TOM_EKONOMI, new Date(2026, 7, 12)), "2026-08");
+});
+
+/* --- inköpen ------------------------------------------------------ */
+
+prov("ett datum hör till sin månad", () => {
+  lika(manadAvDatum("2026-08-14"), "2026-08");
+  lika(manadAvDatum("2026-08"), null, "en månad är inte ett datum");
+  lika(manadAvDatum("strunt"), null);
+});
+
+prov("inköpen i en månad kommer senast först", () => {
+  lika(
+    inkopIManad(DATA, "2026-08").map((i) => i.datum),
+    ["2026-08-19", "2026-08-11", "2026-08-07", "2026-08-03"]
+  );
+  lika(inkopIManad(DATA, "2026-07").map((i) => i.namn), ["Skrivbordslampa"]);
+  lika(inkopIManad(DATA, "2026-09"), []);
+});
+
+prov("månadens inköp summeras — även de utan kategori", () => {
+  // Summan under listan måste svara på samma fråga som listan visar.
+  // Ett inköp utan kategori är fortfarande pengar som gick åt.
+  lika(summaInkop(inkopIManad(DATA, "2026-08")), 9600);
+});
+
+prov("inköp per kategori", () => {
+  const per = inkopPerKategori(DATA, "2026-08");
+  lika(per.get("noje"), 4500, "två inköp läggs ihop");
+  lika(per.get("behov"), 4800);
+  lika(per.get(""), 300, "de utan kategori hamnar för sig");
+  lika(per.get("spar"), undefined);
+});
+
+prov("en kategori utan inköp är okänd, inte noll", () => {
+  // Noll vore påståendet "du handlade ingenting", och det kan sidan
+  // inte veta. En nolla där hade sett ut som ett svar.
+  lika(inkopFor(DATA, "2026-08", "noje"), 4500);
+  lika(inkopFor(DATA, "2026-08", "spar"), null);
+  lika(inkopFor(DATA, "2026-09", "noje"), null, "fel månad räknas inte");
+});
+
+prov("ett inköp med noll kronor är noll och inte okänt", () => {
+  const d = tolkaEkonomiData({
+    kategorier: [{ id: "noje", namn: "Nöjen", sparande: false, ton: 2 }],
+    inkop: [{ id: "x", datum: "2026-08-02", namn: "Gratisprov", belopp: 0, kategoriId: "noje" }],
+  });
+  lika(inkopFor(d, "2026-08", "noje"), 0);
+});
+
+prov("ett inköp utan giltigt datum faller bort", () => {
+  // Utan datum går det inte att lägga i någon månad, och en rad som
+  // varken syns eller summeras är värre än ingen rad alls.
+  const d = tolkaEkonomiData({
+    inkop: [
+      { id: "x", datum: "", namn: "Utan datum", belopp: 100, kategoriId: "" },
+      { id: "y", datum: "2026-08-02", namn: "Med datum", belopp: 100, kategoriId: "" },
+    ],
+  });
+  lika(d.inkop.map((i) => i.namn), ["Med datum"]);
+});
+
+prov("ett inköp mot en borttagen kategori behåller pengarna", () => {
+  // Pengarna gick åt oavsett vad raden hette. Att låta en omdöpt budget
+  // radera historiken vore att låta bokföringen bero på fackindelningen.
+  const d = tolkaEkonomiData({
+    kategorier: [{ id: "noje", namn: "Nöjen", sparande: false, ton: 2 }],
+    inkop: [
+      { id: "x", datum: "2026-08-02", namn: "Airpods", belopp: 2500, kategoriId: "borta" },
+    ],
+  });
+  lika(d.inkop.length, 1);
+  lika(d.inkop[0].kategoriId, "", "kategorin tappas, inte raden");
+  lika(summaInkop(inkopIManad(d, "2026-08")), 2500);
+  lika(inkopFor(d, "2026-08", "borta"), null);
+});
+
+/* --- abonnemangen ------------------------------------------------- */
+
+prov("månadsavgifter dras varje månad", () => {
+  const claude = DATA.abonnemang[0];
+  lika(dras(claude, "2026-08"), true);
+  lika(dras(claude, "2026-12"), true);
+});
+
+prov("årsavgifter dras bara i sin månad", () => {
+  // Hela beloppet i den månad det faktiskt dras. Ett utslaget genomsnitt
+  // hade varit ett jämnare tal men ett som aldrig står på kontoutdraget.
+  const headway = DATA.abonnemang[1];
+  lika(dras(headway, "2026-03"), true);
+  lika(dras(headway, "2027-03"), true, "året spelar ingen roll");
+  lika(dras(headway, "2026-08"), false);
+});
+
+prov("pausade dras aldrig", () => {
+  lika(dras(DATA.abonnemang[2], "2026-08"), false);
+});
+
+prov("månadens abonnemang", () => {
+  lika(abonnemangsKostnad(DATA, "2026-08"), 430, "Claude 250 + domänen 180");
+  lika(abonnemangsKostnad(DATA, "2026-03"), 500, "Claude 250 + Headway 250");
+  lika(abonnemangsKostnad(DATA, "2026-05"), 250, "bara Claude");
+  lika(
+    abonnemangIManad(DATA, "2026-08").map((a) => a.namn),
+    ["Claude Pro", "Domän"]
+  );
+});
+
+prov("årskostnaden räknar månadsavgiften tolv gånger", () => {
+  // 250 × 12 + 250 + 180. Spotify är pausat och räknas inte.
+  lika(abonnemangPerAr(DATA), 3430);
+});
+
+prov("nästa dragning", () => {
+  const claude = DATA.abonnemang[0];
+  const headway = DATA.abonnemang[1];
+  lika(nastaDragning(claude, "2026-08"), "2026-08", "månadsvis dras nu");
+  lika(nastaDragning(headway, "2026-01"), "2026-03");
+  lika(nastaDragning(headway, "2026-03"), "2026-03", "i sin egen månad är det nu");
+  lika(nastaDragning(headway, "2026-08"), "2027-03", "annars nästa år");
+  lika(nastaDragning(DATA.abonnemang[2], "2026-08"), null, "pausade har ingen");
+});
+
+prov("dragningsmånaden hålls inom skalan", () => {
+  lika(klamManad(3), 3);
+  lika(klamManad(0), 1);
+  lika(klamManad(13), 12);
+  lika(klamManad("7"), 7, "väljaren lämnar ifrån sig en sträng");
+  lika(klamManad("strunt"), 1);
+});
+
+prov("ett abonnemang utan aktiv-fält är aktivt", () => {
+  // Gammal data skall inte tolkas som att allt är pausat.
+  const d = tolkaEkonomiData({
+    abonnemang: [{ id: "x", namn: "Claude Pro", belopp: 250, period: "manad" }],
+  });
+  lika(d.abonnemang[0].aktiv, true);
+  lika(d.abonnemang[0].dragManad, 1, "utan vald månad blir det januari");
+  lika(abonnemangPerAr(d), 3000);
+});
+
+prov("okänd period blir månad", () => {
+  const d = tolkaEkonomiData({
+    abonnemang: [{ id: "x", namn: "Något", belopp: 99, period: "kvartal" }],
+  });
+  lika(d.abonnemang[0].period, "manad");
+});
+
+prov("tom data har tomma register", () => {
+  lika(TOM_EKONOMI.inkop, []);
+  lika(TOM_EKONOMI.abonnemang, []);
+  lika(tolkaEkonomiData({}).inkop, []);
+  lika(tolkaEkonomiData({}).abonnemang, []);
+  lika(abonnemangPerAr(TOM_EKONOMI), 0);
+  lika(abonnemangsKostnad(TOM_EKONOMI, "2026-08"), 0);
 });
 
 process.stdout.write(

@@ -2,9 +2,9 @@
  * Privatekonomi — månadsplanering.
  *
  * Sidan är gjord för ritualen strax före löning: pengarna kommer in och
- * skall fördelas. Den handlar därför om KATEGORIER och aldrig om enskilda
- * utgifter. En tröja för 349 kronor hör inte hemma här; "Nöjen 2 000"
- * gör det.
+ * skall fördelas. PLANEN handlar därför om KATEGORIER och aldrig om
+ * enskilda utgifter. En kaffe för 49 kronor hör inte hemma någonstans på
+ * sidan; "Nöjen 2 000" hör hemma i planen.
  *
  * Tre saker hänger ihop och måste hållas isär:
  *
@@ -19,6 +19,21 @@
  *
  *   MALLEN fyller i en ny månad. Ritualen skall vara att justera, inte
  *   att börja om från ett tomt papper varje gång.
+ *
+ * Två register ligger BREDVID månadsplanen och inte i den:
+ *
+ *   INKÖPEN är de enskilda utgifter som är stora nog att minnas —
+ *   "Airpods Pro 2 500", inte dagens fika. De hör till ett datum och
+ *   därmed till en månad, och de FÖRESLÅR månadens utfall utan att
+ *   skriva det. Ett utfall som räknades fram av sig självt vore ett tal
+ *   man slutade äga: den dag ett inköp glömdes bort skulle summan se
+ *   lika färdig ut som annars, fast den vore fel.
+ *
+ *   ABONNEMANGEN är det som dras utan att man gör något. Hela avgiften
+ *   räknas i den månad den faktiskt dras — 250 kronor om året belastar
+ *   en månad och inte tolv med tjugoen kronor styck, eftersom det förra
+ *   är vad kontoutdraget visar. Årskostnaden står bredvid, för det är
+ *   den frågan man ställer när man överväger att säga upp något.
  */
 
 import { MANADER } from "../tid";
@@ -70,11 +85,61 @@ export interface Sparmal {
   start: number | null;
 }
 
+/**
+ * Ett enskilt inköp, stort nog att minnas.
+ *
+ * Gränsen mot planen går vid frågan man ställer. Planen svarar på "hur
+ * mycket får Nöjen kosta i september"; inköpet svarar på "vad blev det
+ * egentligen som gick åt". Det senare är en logg och inte ett budgetord,
+ * och därför lever det i en egen lista.
+ */
+export interface Inkop {
+  id: string;
+  /** "YYYY-MM-DD". Avgör vilken månad inköpet hör till. */
+  datum: string;
+  namn: string;
+  belopp: number | null;
+  /**
+   * Kategorin det belastar, eller tomt när det inte hör till någon.
+   *
+   * Tomt är ett fullgott svar. Ett inköp utan kategori är fortfarande
+   * en utgift man vill komma ihåg, och ett fält som tvingade fram ett
+   * val skulle bara ge en skräpkategori som hette "Övrigt".
+   */
+  kategoriId: string;
+}
+
+/** Hur ofta ett abonnemang dras. */
+export type Period = "manad" | "ar";
+
+export interface Abonnemang {
+  id: string;
+  namn: string;
+  belopp: number | null;
+  period: Period;
+  /**
+   * 1–12: månaden årsavgiften dras. Saknar mening när perioden är
+   * månad, och bevaras ändå — den som växlar till år och tillbaka skall
+   * inte förlora vad hen redan valt.
+   */
+  dragManad: number;
+  /**
+   * Pausade ligger kvar men räknas inte.
+   *
+   * Skilt från att radera med flit: ett uppsagt abonnemang är just det
+   * man vill kunna se att man en gång betalade för, och kanske ta
+   * tillbaka. Raderar man det är historien borta.
+   */
+  aktiv: boolean;
+}
+
 export interface EkonomiData {
   kategorier: Kategori[];
   manader: Manad[];
   mall: Mall;
   mal: Sparmal;
+  inkop: Inkop[];
+  abonnemang: Abonnemang[];
 }
 
 export const TOM_EKONOMI: EkonomiData = {
@@ -82,6 +147,8 @@ export const TOM_EKONOMI: EkonomiData = {
   manader: [],
   mall: { inkomst: null, poster: [] },
   mal: { namn: "", belopp: null, start: null },
+  inkop: [],
+  abonnemang: [],
 };
 
 /* ==================================================================
@@ -166,6 +233,19 @@ export function nastaManad(id: string): string {
     : `${ar}-${String(manad + 1).padStart(2, "0")}`;
 }
 
+/** Månaden ett datum ("2026-08-14") hör till, eller null om det är skräp. */
+export function manadAvDatum(datum: string): string | null {
+  const m = datum.match(/^(\d{4})-(\d{2})-\d{2}$/);
+  return m ? `${m[1]}-${m[2]}` : null;
+}
+
+/** 1–12. Allt annat blir januari — ett värde utanför skalan är ingen månad. */
+export function klamManad(n: unknown): number {
+  const t = typeof n === "number" ? n : Number(n);
+  if (!Number.isFinite(t)) return 1;
+  return Math.min(12, Math.max(1, Math.round(t)));
+}
+
 export function foregaendeManad(id: string): string {
   const m = id.match(/^(\d{4})-(\d{2})$/);
   if (!m) return id;
@@ -244,9 +324,39 @@ export function tolkaEkonomiData(rå: unknown): EkonomiData {
   const råMall = arObjekt(rå.mall) ? rå.mall : {};
   const råMal = arObjekt(rå.mal) ? rå.mal : {};
 
+  /* Ett inköp mot en kategori som inte längre finns tappar sin
+     kategori, men INTE sig självt. Pengarna gick åt oavsett vad raden
+     hette, och att låta en omdöpt budget radera historiken vore att
+     låta bokföringen bero på hur man ordnat sina fack. */
+  const inkop = lista(rå.inkop, (p, i) => {
+    const datum = text(p.datum);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(datum)) return null;
+    const kategoriId = text(p.kategoriId);
+    return {
+      id: text(p.id) || `i${i}`,
+      datum,
+      namn: text(p.namn),
+      belopp: tolkaKrona(p.belopp),
+      kategoriId: kanda.has(kategoriId) ? kategoriId : "",
+    };
+  }).sort((a, b) => b.datum.localeCompare(a.datum));
+
+  const abonnemang = lista(rå.abonnemang, (a, i) => ({
+    id: text(a.id) || `a${i}`,
+    namn: text(a.namn),
+    belopp: tolkaKrona(a.belopp),
+    period: (a.period === "ar" ? "ar" : "manad") as Period,
+    dragManad: klamManad(a.dragManad),
+    // Frånvarande fält betyder aktiv. Gammal data utan fältet skall
+    // inte tolkas som att allt är pausat.
+    aktiv: a.aktiv !== false,
+  }));
+
   return {
     kategorier,
     manader,
+    inkop,
+    abonnemang,
     mall: {
       inkomst: tolkaKrona(råMall.inkomst),
       poster: lista(råMall.poster, (p) => {
@@ -326,6 +436,123 @@ export function motForegaende(
   const b = postFor(forra, kategoriId)?.plan ?? null;
   if (a === null || b === null) return null;
   return a - b;
+}
+
+/* ==================================================================
+   INKÖPEN
+
+   Loggen över enskilda utgifter. Den räknar aldrig om månadens utfall
+   åt någon — den lägger fram ett tal som man med ett tryck kan göra
+   till sitt. Skillnaden är hela poängen: ett föreslaget tal måste
+   godkännas, och därmed läses.
+   ================================================================== */
+
+export function summaInkop(inkop: Inkop[]): number {
+  return summa(inkop.map((i) => i.belopp));
+}
+
+/** Inköpen i en månad, senast först. */
+export function inkopIManad(data: EkonomiData, manadId: string): Inkop[] {
+  return data.inkop
+    .filter((i) => manadAvDatum(i.datum) === manadId)
+    .sort((a, b) => b.datum.localeCompare(a.datum));
+}
+
+/**
+ * Summan av månadens inköp per kategori.
+ *
+ * Inköp utan kategori hamnar under "" och kommer därmed med i månadens
+ * totalsumma utan att föreslå något utfall — det finns ju ingen rad att
+ * föreslå det för.
+ */
+export function inkopPerKategori(
+  data: EkonomiData,
+  manadId: string
+): Map<string, number> {
+  const ut = new Map<string, number>();
+  for (const i of inkopIManad(data, manadId)) {
+    ut.set(i.kategoriId, (ut.get(i.kategoriId) ?? 0) + (i.belopp ?? 0));
+  }
+  return ut;
+}
+
+/**
+ * Vad inköpen säger om en kategori i en månad.
+ *
+ * NULL när inga inköp bokförts, och inte noll. Noll skulle betyda "du
+ * handlade ingenting", vilket är ett påstående sidan inte kan göra — det
+ * som faktiskt gäller är att den inte vet.
+ */
+export function inkopFor(
+  data: EkonomiData,
+  manadId: string,
+  kategoriId: string
+): number | null {
+  const har = data.inkop.some(
+    (i) => i.kategoriId === kategoriId && manadAvDatum(i.datum) === manadId
+  );
+  if (!har) return null;
+  return inkopPerKategori(data, manadId).get(kategoriId) ?? 0;
+}
+
+/* ==================================================================
+   ABONNEMANGEN
+
+   Hela avgiften i den månad den dras. Det utslagna genomsnittet vore
+   ett jämnare tal men ett tal som aldrig står på något kontoutdrag, och
+   en sida vars siffror inte går att stämma av mot banken är en sida man
+   slutar tro på.
+   ================================================================== */
+
+/** Sant om avgiften dras i den här månaden. */
+export function dras(a: Abonnemang, manadId: string): boolean {
+  if (!a.aktiv) return false;
+  if (a.period === "manad") return true;
+  const m = manadId.match(/^\d{4}-(\d{2})$/);
+  return m ? Number(m[1]) === a.dragManad : false;
+}
+
+export function abonnemangIManad(
+  data: EkonomiData,
+  manadId: string
+): Abonnemang[] {
+  return data.abonnemang.filter((a) => dras(a, manadId));
+}
+
+/** Vad abonnemangen drar i en bestämd månad. */
+export function abonnemangsKostnad(
+  data: EkonomiData,
+  manadId: string
+): number {
+  return summa(abonnemangIManad(data, manadId).map((a) => a.belopp));
+}
+
+/** Vad abonnemangen kostar på ett år. Månadsavgifter gånger tolv. */
+export function abonnemangPerAr(data: EkonomiData): number {
+  return data.abonnemang
+    .filter((a) => a.aktiv)
+    .reduce((s, a) => s + (a.belopp ?? 0) * (a.period === "manad" ? 12 : 1), 0);
+}
+
+/**
+ * Månaden avgiften nästa gång dras, räknat från och med `fran`.
+ *
+ * Null för pausade: ett datum för något som inte dras vore ett löfte om
+ * en händelse som aldrig kommer.
+ */
+export function nastaDragning(
+  a: Abonnemang,
+  fran: string = manadsNyckel(new Date())
+): string | null {
+  if (!a.aktiv) return null;
+  const m = fran.match(/^(\d{4})-(\d{2})$/);
+  if (!m) return null;
+  if (a.period === "manad") return fran;
+  const ar = Number(m[1]);
+  const nu = Number(m[2]);
+  const drag = klamManad(a.dragManad);
+  const arDa = drag >= nu ? ar : ar + 1;
+  return `${arDa}-${String(drag).padStart(2, "0")}`;
 }
 
 /* ==================================================================

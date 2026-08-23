@@ -2202,6 +2202,361 @@ input.dokdeck:focus {
 }
 
 /* ==================================================================
+   MINA VINER
+
+   Sidan lånar registerraden, lägesmätaren och andelsstapeln från
+   fornsvenskasidan — det är samma slags register, och två register som
+   ser olika ut utan att VARA olika är två saker att lära sig i stället
+   för en. Det som är eget här är etiketten, smakskalorna och betyget.
+   ================================================================== */
+
+/* Läget "vill prova" är sidans obesvarade fråga och bär därför accent,
+   precis som "behövs" gör i litteraturregistret. "Drucken" är ett
+   avslutat ärende och bär ingenting. */
+.lagesmatare[data-lage="vill"] > span[data-fylld="1"] {
+  background: var(--accent);
+}
+
+.andelsstapel > span[data-lage="vill"] {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--ink) 0 1px,
+    transparent 1px 4px
+  );
+}
+
+.andelsstapel > span[data-lage="drucken"] {
+  background: var(--ink);
+}
+
+/* Vinets slag som en prick i raden. Samma form som kategoriprickarna i
+   Privatekonomi — en prick betyder samma sak överallt i appen.
+
+   Ingen `align-self: center`. Raden är baslinjeställd, och en centrerad
+   prick bredvid en titel som radbrutit till fem rader hamnar mitt i
+   dem — som om den hörde till tredje raden. Utan regeln lägger sig
+   prickens underkant på första radens baslinje, där den hör hemma. */
+.vinprick {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border: 1px solid var(--ink);
+  flex-shrink: 0;
+}
+
+/*
+ * Etiketten.
+ *
+ * Stående format och `contain`, inte `cover`. En vinflaska är hög och
+ * smal, och en beskuren etikett tappar just den delen som säger vilket
+ * vin det är. Hellre luft runt bilden än en avklippt årgång.
+ *
+ * BREDDEN SITTER HÄR OCH INGEN ANNANSTANS. Att sätta den med en
+ * Tailwind-klass på samma element fungerar inte: egna klasser skrivs
+ * efter `@tailwind utilities` och vinner därför på källordning, tyst
+ * och utan felmeddelande. Bilden blev då lika bred som hela spalten —
+ * ett par tusen bildpunkter hög flaska mitt i ett register. Spalten är
+ * en egen klass av samma skäl, så att fältet under bilden blir lika
+ * brett utan att någon behöver hålla två tal i synk. Spalten OMSLUTER
+ * bilden och sitter aldrig på samma element: `.vinbild` skrivs längre
+ * ned i filen och hade vunnit över den på källordning.
+ */
+.vinspalt {
+  display: block;
+  width: 116px;
+  flex-shrink: 0;
+  /* Utan detta sträcker sig spalten till radens hela höjd. Den är
+     genomskinlig och syns inte, men en osynlig yta som täcker en hel
+     rad är en fälla för nästa person som ger den en bakgrund. */
+  align-self: flex-start;
+}
+
+.vinbild {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 3 / 4;
+  width: 100%;
+  border: 1px solid var(--ink);
+  background: var(--panel);
+  overflow: hidden;
+}
+
+.vinbild img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+/* ------------------------------------------------------------------
+   FAKTA OM VINET
+
+   Läsläget. Etikett till vänster i monospace, värde till höger i
+   samma — det är en avläsning och inte en text — med en hårfin linje
+   mellan raderna. Uppställningen härmar förlagan med flit: det är där
+   man läste av talen, och två uppställningar som skiljer sig åt gör
+   varje avläsning till en översättning.
+   ------------------------------------------------------------------ */
+.vinfakta > div {
+  display: flex;
+  gap: 0.9rem;
+  align-items: baseline;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid rgb(17 17 17 / 0.1);
+}
+
+.vinfakta > div:last-child {
+  border-bottom: 0;
+}
+
+.vinfakta dt {
+  flex-shrink: 0;
+  width: 7.5rem;
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 500;
+  opacity: 0.5;
+}
+
+.vinfakta dd {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 767px) {
+  /* På telefonen ryms ingen etikettspalt bredvid ett värde som
+     "Shiraz/Syrah, Tempranillo". Etiketten ställer sig då över. */
+  .vinfakta > div {
+    display: block;
+  }
+
+  .vinfakta dt {
+    width: auto;
+    margin-bottom: 0.15rem;
+  }
+}
+
+/* Brödtext inne i en registerrad. Antikvan är rätt — det är det enda
+   på sidan man läser mer än en mening av — men bladets grad är för
+   stor i en tät lista. */
+.vintext {
+  font-size: 0.92rem;
+  line-height: 1.6;
+  margin-top: 0.2rem;
+}
+
+/* Din egen anteckning får en streckad ram. Den är det enda på sidan som
+   ingen annan kunde ha skrivit, och skall inte gå att förväxla med den
+   avskrivna beskrivningen ovanför. */
+.vinanteckning {
+  border-left: 1px dashed rgb(17 17 17 / 0.45);
+  padding-left: 0.9rem;
+}
+
+/* ------------------------------------------------------------------
+   SMAKSKALORNA
+   Ord i båda ändar, aldrig siffror. Ingen av de fyra skalorna har en
+   bra och en dålig ände, och en siffra hade läst som ett betyg.
+   ------------------------------------------------------------------ */
+/* Taket finns för läsbarhetens skull. På en vid skärm blir ett spår
+   utan max en meter långt, och bandet som skall säga "ungefär här" blir
+   en prick i en tomhet. Fyra skalor under varandra läses dessutom som
+   en grupp bara så länge ögat hinner tillbaka till vänsterkanten. */
+.smaktavla {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-width: 34rem;
+}
+
+.smakrad {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.smakord {
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  opacity: 0.55;
+  flex-shrink: 0;
+  width: 3.4rem;
+  white-space: nowrap;
+}
+
+.smakspar {
+  position: relative;
+  flex: 1;
+  min-width: 60px;
+  height: 9px;
+  border: 1px solid var(--ink);
+  background: var(--panel);
+}
+
+/* En ofylld skala ritas som raster och inte som ett tomt spår. Tomt
+   spår och "noll på skalan" hade sett likadana ut, och skillnaden
+   mellan dem är hela poängen med att kunna märka ett vin som omöjligt
+   att slå upp. */
+.smakspar[data-tomt="1"] {
+  background: repeating-linear-gradient(
+    45deg,
+    rgb(17 17 17 / 0.22) 0 1px,
+    transparent 1px 5px
+  );
+}
+
+.smakband {
+  position: absolute;
+  top: -1px;
+  bottom: -1px;
+  border: 1px solid var(--ink);
+  transition: left 120ms linear;
+}
+
+/*
+ * Reglaget ligger osynligt över spåret.
+ *
+ * En input[type=range] ritar sitt eget spår i webbläsarens formspråk —
+ * rundat, tonat, med en rund knapp — och det hade varit den enda runda
+ * saken i hela appen. Här är den bara en träffyta; spåret under är det
+ * man ser.
+ */
+.smakreglage {
+  position: absolute;
+  inset: -6px 0;
+  width: 100%;
+  height: calc(100% + 12px);
+  margin: 0;
+  opacity: 0;
+  cursor: ew-resize;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+
+.smakreglage:focus-visible + * {
+  outline: 1px solid var(--accent);
+}
+
+.smakspar:focus-within {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------------
+   BETYGET
+   Fem celler i stället för fem stjärnor. En stjärna är rund, är en
+   ikon och är hämtad ur ett annat formspråk; en fyrkant kan dessutom
+   fyllas delvis utan att se ut som ett ritfel.
+   ------------------------------------------------------------------ */
+.betygsrad {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.betygsmatare {
+  display: inline-flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.betygsmatare > button {
+  display: block;
+  line-height: 0;
+}
+
+.betygscell {
+  display: block;
+  width: 8px;
+  height: 12px;
+  border: 1px solid var(--ink);
+  background: var(--panel);
+  overflow: hidden;
+}
+
+.betygscell > span {
+  display: block;
+  height: 100%;
+  background: var(--ink);
+}
+
+.betygstal {
+  font-size: 0.66rem;
+  opacity: 0.6;
+  min-width: 1.7rem;
+}
+
+.betygsrad[data-storlek="stor"] .betygscell {
+  width: 12px;
+  height: 18px;
+}
+
+.betygsrad[data-storlek="stor"] .betygstal {
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+
+/* ------------------------------------------------------------------
+   SMAKNOTERNA
+   Vivinos kort: färgat huvud med orden, matt fot med gruppen och
+   antalet. Färgen ordnar korten i raden; det är ordet som bär
+   betydelsen, och därför står ordet i huvudet och inte gruppen.
+   ------------------------------------------------------------------ */
+.smakkortrad {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+
+.smakkort {
+  border: 1px solid var(--ink);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--paper);
+}
+
+.smakkorthuvud {
+  display: block;
+  padding: 0.5rem 0.55rem;
+  border-bottom: 1px solid var(--ink);
+}
+
+.smakkorthuvud .falt {
+  font-size: 0.74rem;
+  width: 100%;
+}
+
+/* Samma grad i läsläget, så att kortet inte hoppar i höjd när man
+   växlar mellan lägena. Ett kort som ändrar storlek av att man slutar
+   redigera ser ut att ha ändrat innehåll. */
+.smakord-text {
+  display: block;
+  font-size: 0.74rem;
+  line-height: 1.35;
+  padding: 0.24rem 0;
+  overflow-wrap: anywhere;
+}
+
+.smakkortfot {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.35rem;
+}
+
+.smakkortfot .falt {
+  font-size: 0.62rem;
+}
+
+/* ==================================================================
    KOPPLINGAR
    En länk skall se ut som en länk utan att låna färg från något annat
    i systemet — accenten är redan upptagen av "detta kräver din

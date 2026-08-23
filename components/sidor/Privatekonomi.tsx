@@ -11,18 +11,30 @@
  * prognos följer av det man skriver in; ingenting av det går att skriva
  * för hand, eftersom ett tal man matat in och ett tal som räknats fram
  * ser likadana ut och det första blir fel den dag man ändrar något annat.
+ *
+ * Under planen ligger två register som INTE är planen. Inköpen är de
+ * enskilda utgifter man vill minnas, och de föreslår månadens utfall med
+ * en pil man trycker på — de skriver det aldrig själva. Abonnemangen är
+ * det som dras utan att man gör något, och räknas i den månad avgiften
+ * faktiskt dras.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { nyId } from "@/lib/butik";
-import { MANADER_KORT } from "@/lib/tid";
+import { MANADER, MANADER_KORT, nyckel } from "@/lib/tid";
 import type { SidData, Sida } from "@/lib/typer";
 import {
+  abonnemangPerAr,
+  abonnemangsKostnad,
   andelAvInkomst,
   avvikelse,
+  dras,
   framsteg,
   genomsnittligtSparande,
   harUtfall,
+  inkopFor,
+  inkopIManad,
+  klamManad,
   klamTon,
   kronor,
   kronorMedTecken,
@@ -31,6 +43,7 @@ import {
   manadUrMall,
   manadsText,
   motForegaende,
+  nastaDragning,
   nastaLedigaManad,
   postFor,
   procent,
@@ -38,15 +51,19 @@ import {
   sparandePlan,
   sparandeUtfall,
   sparkvot,
+  summaInkop,
   summaPlan,
   summaUtfall,
   tolkaEkonomiData,
   tolkaKrona,
+  type Abonnemang,
   type EkonomiData,
+  type Inkop,
   type Kategori,
   type Manad,
 } from "@/lib/sidor/ekonomi";
 import Avsnitt from "./block/Avsnitt";
+import Rader from "./block/Rader";
 import Talfalt from "./block/Talfalt";
 import Fordelningsstapel from "./block/Fordelningsstapel";
 import Manadsstapel from "./block/Manadsstapel";
@@ -58,6 +75,19 @@ const samma = (a: EkonomiData, b: EkonomiData) =>
 
 /** Belopp skrivs "7 500". Talfältet får därför egna regler. */
 const skrivKrona = (n: number | null) => (n === null ? "" : kronor(n));
+
+/**
+ * Datumet ett nytt inköp skall få.
+ *
+ * Idag om man står i innevarande månad, annars den första i den månad
+ * man tittar på. Att alltid föreslå idag hade lagt raden i fel månad så
+ * fort man efterregistrerar, och den försvinner då ur listan man just
+ * skriver i — vilket ser ut som att den inte sparades.
+ */
+function nyttInkopsdatum(manadId: string): string {
+  const idag = new Date();
+  return nyckel(idag).startsWith(manadId) ? nyckel(idag) : `${manadId}-01`;
+}
 
 export default function Privatekonomi({
   sida,
@@ -175,7 +205,11 @@ export default function Privatekonomi({
     }));
 
   /* En borttagen kategori måste bort ur varje månad och ur mallen. Blir
-     posterna kvar syns de inte men räknas fortfarande in i summorna. */
+     posterna kvar syns de inte men räknas fortfarande in i summorna.
+
+     Inköpen är ett undantag: de tappar sin kategori men får ligga kvar.
+     Pengarna gick åt oavsett vad raden hette, och en omdöpt budget skall
+     inte kunna radera historiken. */
   const taBortKategori = (id: string) =>
     andra((d) => ({
       ...d,
@@ -188,6 +222,98 @@ export default function Privatekonomi({
         ...d.mall,
         poster: d.mall.poster.filter((p) => p.kategoriId !== id),
       },
+      inkop: d.inkop.map((i) =>
+        i.kategoriId === id ? { ...i, kategoriId: "" } : i
+      ),
+    }));
+
+  /* ---------------------------------------------------------------
+     Inköp
+     --------------------------------------------------------------- */
+  const [visaAllaInkop, setVisaAllaInkop] = useState(false);
+
+  const nyttInkop = () =>
+    andra((d) => ({
+      ...d,
+      inkop: [
+        {
+          id: nyId(),
+          datum: nyttInkopsdatum(manad?.id ?? nastaLedigaManad(d)),
+          namn: "",
+          belopp: null,
+          kategoriId: "",
+        },
+        ...d.inkop,
+      ],
+    }));
+
+  const andraInkop = (id: string, delar: Partial<Inkop>) =>
+    andra((d) => ({
+      ...d,
+      inkop: d.inkop.map((i) => (i.id === id ? { ...i, ...delar } : i)),
+    }));
+
+  const taBortInkop = (id: string) =>
+    andra((d) => ({ ...d, inkop: d.inkop.filter((i) => i.id !== id) }));
+
+  /**
+   * Fyller månadens utfall ur inköpen.
+   *
+   * Rör bara kategorier som FAKTISKT har inköp. Att nolla de övriga vore
+   * att påstå att ingenting gick åt där, och det är ett påstående som
+   * kommer från att listan är ofullständig och inte från verkligheten.
+   */
+  const fyllUtfallUrInkop = (manadId: string) =>
+    andra((d) => ({
+      ...d,
+      manader: d.manader.map((m) => {
+        if (m.id !== manadId) return m;
+        const poster = [...m.poster];
+        for (const k of d.kategorier) {
+          const belopp = inkopFor(d, manadId, k.id);
+          if (belopp === null) continue;
+          const i = poster.findIndex((p) => p.kategoriId === k.id);
+          if (i === -1) {
+            poster.push({ kategoriId: k.id, plan: null, utfall: belopp });
+          } else {
+            poster[i] = { ...poster[i], utfall: belopp };
+          }
+        }
+        return { ...m, poster };
+      }),
+    }));
+
+  /* ---------------------------------------------------------------
+     Abonnemang
+     --------------------------------------------------------------- */
+  const nyttAbonnemang = () =>
+    andra((d) => ({
+      ...d,
+      abonnemang: [
+        ...d.abonnemang,
+        {
+          id: nyId(),
+          namn: "",
+          belopp: null,
+          period: "manad" as const,
+          dragManad: new Date().getMonth() + 1,
+          aktiv: true,
+        },
+      ],
+    }));
+
+  const andraAbonnemang = (id: string, delar: Partial<Abonnemang>) =>
+    andra((d) => ({
+      ...d,
+      abonnemang: d.abonnemang.map((a) =>
+        a.id === id ? { ...a, ...delar } : a
+      ),
+    }));
+
+  const taBortAbonnemang = (id: string) =>
+    andra((d) => ({
+      ...d,
+      abonnemang: d.abonnemang.filter((a) => a.id !== id),
     }));
 
   /* ---------------------------------------------------------------
@@ -212,6 +338,23 @@ export default function Privatekonomi({
         : [],
     [form.kategorier, manad]
   );
+
+  const inkopIVy = useMemo(() => {
+    if (visaAllaInkop || !manad) {
+      return [...form.inkop].sort((a, b) => b.datum.localeCompare(a.datum));
+    }
+    return inkopIManad(form, manad.id);
+  }, [form, manad, visaAllaInkop]);
+
+  /* Inköpen i den valda månaden, oavsett vad listan visar. Summan under
+     listan skall svara på samma fråga som tabellen ovanför. */
+  const inkopDennaManad = useMemo(
+    () => (manad ? inkopIManad(form, manad.id) : []),
+    [form, manad]
+  );
+
+  const abonnemangNu = manad ? abonnemangsKostnad(form, manad.id) : null;
+  const abonnemangAr = useMemo(() => abonnemangPerAr(form), [form]);
 
   const staplar = useMemo(
     () =>
@@ -309,6 +452,19 @@ export default function Privatekonomi({
             bihang="Belopp i kronor — andelen räknas ut"
             atgard={
               <div className="flex items-center gap-2 shrink-0">
+                {/* Bara när det finns något att fylla MED. En knapp som
+                    inte kan göra något är en knapp man trycker på en
+                    gång och sedan misstror. */}
+                {visaUtfall && manad && inkopDennaManad.length > 0 && (
+                  <button
+                    type="button"
+                    className="knapp pico"
+                    onClick={() => fyllUtfallUrInkop(manad.id)}
+                    title="Sätter utfallet till summan av månadens inköp, kategori för kategori"
+                  >
+                    Fyll ur inköpen
+                  </button>
+                )}
                 <button
                   type="button"
                   className="knapp pico"
@@ -353,6 +509,7 @@ export default function Privatekonomi({
                         <th>Kategori</th>
                         <th>Plan</th>
                         <th>Andel</th>
+                        {visaUtfall && <th>Inköp</th>}
                         {visaUtfall && <th>Utfall</th>}
                         {visaUtfall && <th>Avvikelse</th>}
                         <th>Mot förra</th>
@@ -363,6 +520,7 @@ export default function Privatekonomi({
                         const post = postFor(manad, k.id);
                         const av = post ? avvikelse(post) : null;
                         const mot = motForegaende(form, manad.id, k.id);
+                        const ink = inkopFor(form, manad.id, k.id);
                         return (
                           <tr key={k.id}>
                             <td>
@@ -398,6 +556,32 @@ export default function Privatekonomi({
                             <td className="opacity-55">
                               {procent(andelAvInkomst(post?.plan ?? null, manad))}
                             </td>
+                            {/* Inköpen FÖRESLÅR utfallet. Pilen visar att
+                                talet går att flytta över, och att det
+                                inte redan är överflyttat — stämmer de
+                                överens står talet stilla och matt. */}
+                            {visaUtfall && (
+                              <td>
+                                {ink === null ? (
+                                  <span className="opacity-25">—</span>
+                                ) : ink === (post?.utfall ?? null) ? (
+                                  <span className="opacity-45">
+                                    {kronor(ink)}
+                                  </span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    className="knapp pico tabnum"
+                                    onClick={() =>
+                                      sattPost(manad.id, k.id, "utfall", ink)
+                                    }
+                                    title={`Sätt utfallet till ${kronor(ink)} kr ur inköpen`}
+                                  >
+                                    {kronor(ink)} →
+                                  </button>
+                                )}
+                              </td>
+                            )}
                             {visaUtfall && (
                               <td>
                                 <Talfalt
@@ -435,6 +619,15 @@ export default function Privatekonomi({
                         <td className="opacity-55">
                           {procent(andelAvInkomst(summaPlan(manad), manad))}
                         </td>
+                        {/* Hela månadens inköp, även de utan kategori —
+                            annars vore summan mindre än listan under. */}
+                        {visaUtfall && (
+                          <td className="opacity-55">
+                            {inkopDennaManad.length === 0
+                              ? "—"
+                              : kronor(summaInkop(inkopDennaManad))}
+                          </td>
+                        )}
                         {visaUtfall && <td>{kronor(summaUtfall(manad))}</td>}
                         {visaUtfall && (
                           <td
@@ -469,6 +662,103 @@ export default function Privatekonomi({
                   />
                 </div>
               </>
+            )}
+          </Avsnitt>
+
+          {/* ---------------- Inköpen ---------------- */}
+          <Avsnitt
+            rubrik="Inköp"
+            bihang="Enskilda utgifter värda att minnas"
+            atgard={
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  className="knapp pico"
+                  data-aktiv={visaAllaInkop ? "1" : "0"}
+                  onClick={() => setVisaAllaInkop((v) => !v)}
+                  title="Visa inköpen från alla månader"
+                >
+                  Alla
+                </button>
+                <button
+                  type="button"
+                  className="knapp pico"
+                  onClick={nyttInkop}
+                >
+                  + Inköp
+                </button>
+              </div>
+            }
+          >
+            <Rader
+              rader={inkopIVy}
+              onTaBort={taBortInkop}
+              tomText={
+                visaAllaInkop
+                  ? "Inga inköp inlagda. Här hör de stora hemma — Airpods Pro 2 500, klädesinköp 2 000 — inte dagens fika."
+                  : `Inga inköp i ${manad ? manadsText(manad.id).toLowerCase() : "månaden"}. Här hör de stora hemma — Airpods Pro 2 500, klädesinköp 2 000 — inte dagens fika.`
+              }
+              rita={(i) => (
+                <>
+                  <input
+                    type="date"
+                    className="falt datumfalt"
+                    value={i.datum}
+                    onChange={(e) =>
+                      andraInkop(i.id, { datum: e.target.value })
+                    }
+                    aria-label="Datum för inköpet"
+                  />
+                  <input
+                    className="falt min-w-[7rem] flex-1"
+                    placeholder="Vad köpte du?"
+                    value={i.namn}
+                    onChange={(e) => andraInkop(i.id, { namn: e.target.value })}
+                    aria-label="Vad inköpet var"
+                  />
+                  <Talfalt
+                    varde={i.belopp}
+                    onVarde={(n) => andraInkop(i.id, { belopp: n })}
+                    etikett="Belopp"
+                    platshallare="0"
+                    className="falt !w-[6rem] text-right tabnum"
+                    tolkTal={tolkaKrona}
+                    skrivTal={skrivKrona}
+                  />
+                  {/* Tomt är ett fullgott svar. Ett fält som tvingade
+                      fram ett val hade bara gett en kategori "Övrigt". */}
+                  <select
+                    className="falt !w-auto shrink-0"
+                    value={i.kategoriId}
+                    onChange={(e) =>
+                      andraInkop(i.id, { kategoriId: e.target.value })
+                    }
+                    aria-label="Kategori för inköpet"
+                  >
+                    <option value="">Utan kategori</option>
+                    {form.kategorier.map((k) => (
+                      <option key={k.id} value={k.id}>
+                        {k.namn || "Namnlös"}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              )}
+            />
+
+            {inkopIVy.length > 0 && (
+              <div className="px-3 py-2 flex items-baseline gap-2 border-t border-ink/15">
+                {/* Etiketten måste beskriva det listan FAKTISKT visar.
+                    Utan vald månad finns ingen månad att filtrera på, och
+                    då står allt där. */}
+                <span className="pico opacity-45">
+                  {visaAllaInkop || !manad ? "Alla inköp" : manadsText(manad.id)}
+                </span>
+                <span className="flex-1" />
+                <span className="micro tabnum">
+                  {kronor(summaInkop(inkopIVy))} kr
+                </span>
+              </div>
             )}
           </Avsnitt>
 
@@ -746,6 +1036,149 @@ export default function Privatekonomi({
                 })
               )}
             </div>
+          </Avsnitt>
+
+          {/* ---------------- Abonnemangen ---------------- */}
+          <Avsnitt
+            rubrik="Abonnemang"
+            bihang="Hela avgiften i den månad den dras"
+            atgard={
+              <button
+                type="button"
+                className="knapp pico shrink-0"
+                onClick={nyttAbonnemang}
+              >
+                + Abonnemang
+              </button>
+            }
+          >
+            <div className="px-3 pt-3">
+              <div className="faktarad">
+                <div>
+                  <span className="faktaetikett">
+                    {manad ? manadsText(manad.id) : "Denna månad"}
+                  </span>
+                  <span className="faktavarde tabnum">
+                    {kronor(abonnemangNu)}
+                  </span>
+                </div>
+                <div>
+                  <span className="faktaetikett">Per år</span>
+                  <span className="faktavarde tabnum">
+                    {kronor(abonnemangAr)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <Rader
+              rader={form.abonnemang}
+              onTaBort={taBortAbonnemang}
+              tomText="Inga abonnemang inlagda. Claude Pro 250 i månaden, Headway 250 om året — det som dras utan att du gör något."
+              rita={(a) => (
+                <>
+                  {/* Dras avgiften i den månad man tittar på får raden
+                      en prick. Färgen säger inget ensam — månaden står
+                      skriven i väljaren intill. */}
+                  <span
+                    className="ekoprick shrink-0"
+                    style={{
+                      background:
+                        manad && dras(a, manad.id)
+                          ? "var(--ink)"
+                          : "transparent",
+                    }}
+                    aria-hidden="true"
+                  />
+                  <input
+                    className="falt min-w-[6rem] flex-1"
+                    placeholder="Vad?"
+                    value={a.namn}
+                    onChange={(e) =>
+                      andraAbonnemang(a.id, { namn: e.target.value })
+                    }
+                    aria-label="Abonnemangets namn"
+                  />
+                  <Talfalt
+                    varde={a.belopp}
+                    onVarde={(n) => andraAbonnemang(a.id, { belopp: n })}
+                    etikett="Avgift"
+                    platshallare="0"
+                    className="falt !w-[5rem] text-right tabnum"
+                    tolkTal={tolkaKrona}
+                    skrivTal={skrivKrona}
+                  />
+                  <div className="knapp-rad shrink-0">
+                    <button
+                      type="button"
+                      className="knapp pico"
+                      data-aktiv={a.period === "manad" ? "1" : "0"}
+                      onClick={() =>
+                        andraAbonnemang(a.id, { period: "manad" })
+                      }
+                      title="Dras varje månad"
+                    >
+                      / mån
+                    </button>
+                    <button
+                      type="button"
+                      className="knapp pico"
+                      data-aktiv={a.period === "ar" ? "1" : "0"}
+                      onClick={() => andraAbonnemang(a.id, { period: "ar" })}
+                      title="Dras en gång om året"
+                    >
+                      / år
+                    </button>
+                  </div>
+                  {/* En årsavgift utan känd dragningsmånad kan inte
+                      läggas i rätt månad, och en gissning där hade sett
+                      ut som ett svar. */}
+                  {a.period === "ar" && (
+                    <select
+                      className="falt !w-auto shrink-0"
+                      value={a.dragManad}
+                      onChange={(e) =>
+                        andraAbonnemang(a.id, {
+                          dragManad: klamManad(e.target.value),
+                        })
+                      }
+                      aria-label="Månad då årsavgiften dras"
+                    >
+                      {MANADER.map((namn, i) => (
+                        <option key={namn} value={i + 1}>
+                          {namn}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {/* Uppsagt raderas inte i första hand. Det man en gång
+                      betalade för är just vad man vill kunna se. */}
+                  <button
+                    type="button"
+                    className="knapp pico shrink-0"
+                    data-aktiv={a.aktiv ? "0" : "1"}
+                    onClick={() => andraAbonnemang(a.id, { aktiv: !a.aktiv })}
+                    title={
+                      a.aktiv
+                        ? "Pausa — ligger kvar men räknas inte"
+                        : "Pausat — räknas inte"
+                    }
+                  >
+                    {a.aktiv ? "Pausa" : "Pausat"}
+                  </button>
+                  {/* Bara där den säger något. En årsavgift som redan
+                      passerat i år dras nästa — det är värt att se. */}
+                  {a.aktiv && a.period === "ar" && (
+                    <span
+                      className="pico opacity-40 shrink-0"
+                      title="Nästa dragning"
+                    >
+                      {manadsText(nastaDragning(a) ?? "")}
+                    </span>
+                  )}
+                </>
+              )}
+            />
           </Avsnitt>
         </div>
       </div>

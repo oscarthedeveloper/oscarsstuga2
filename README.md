@@ -222,6 +222,12 @@ components/sidor/block/          delade byggstenar
   Serie.tsx                      talserie som SVG
   Nedrakning.tsx                 datum med dygn kvar
   Jamforelse.tsx                 krävs / du har / skillnad
+  Delstapel.tsx                  en samling som en enda stapel
+  Punktdiagram.tsx               spridning i två led som SVG
+  Smakskala.tsx                  ord i båda ändar, band däremellan
+  Betygsmatare.tsx               fem celler, delvis fyllda
+  Vinuppslag.tsx                 läsläget för ett vin
+  Listfalt.tsx                   kommaskild lista med egen råtext
 ```
 
 Sidans **innehåll** är däremot data. Det ligger i `sidor`-tabellen som
@@ -561,8 +567,11 @@ något åt — antalet som behövs, och lägesmätaren på just de posterna.
 ### Privatekonomi
 
 Gjord för kvarten före löning: pengarna kommer in och skall fördelas.
-Sidan handlar om **kategorier** och aldrig om enskilda utgifter — en tröja
-för 349 kronor hör inte hemma här, "Nöjen 2 000" gör det.
+**Planen** handlar om kategorier och aldrig om enskilda utgifter — en
+kaffe för 49 kronor hör inte hemma där, "Nöjen 2 000" gör det. Bredvid
+planen ligger två register som inte är planen: **inköpen**, de enskilda
+utgifter som är stora nog att minnas, och **abonnemangen**, det som dras
+utan att man gör något.
 
 **Kvar att fördela** ligger överst och störst. Det är talet man arbetar
 ned mot noll, och det bär accent så länge det inte är noll: antingen har
@@ -604,9 +613,154 @@ alltid är full döljer sidans viktigaste fråga. Sparandet över tid ritas
 som staplar där **ramen är planen och fyllnaden utfallet**, så att
 skillnaden läses direkt i stället för över ett mellanrum.
 
+**Inköpen är en logg och inte en budgetpost.** Gränsen mot planen går vid
+frågan man ställer: planen svarar på "hur mycket får Nöjen kosta i
+september", inköpet på "vad blev det egentligen som gick åt". Därför hör
+"Airpods Pro 2 500" och "Kläder på HM 2 000" hemma i loggen, medan dagens
+fika inte hör hemma någonstans på sidan.
+
+Loggen **föreslår** månadens utfall — den skriver det aldrig. I
+utfallsvyn får varje kategori en Inköp-spalt, och står talet där som en
+knapp med en pil betyder det att det ännu inte är överflyttat; stämmer de
+överens står talet stilla och matt. "Fyll ur inköpen" gör hela månaden på
+en gång. Ett utfall som räknades fram av sig självt vore ett tal man
+slutade äga: den dag ett inköp glömdes bort skulle summan se lika färdig
+ut som annars, fast den vore fel. Av samma skäl rör påfyllningen bara de
+kategorier som *har* inköp — att nolla de övriga vore att påstå att
+ingenting gick åt där, ett påstående som kommer från att listan är
+ofullständig och inte från verkligheten.
+
+Ett inköp får sakna kategori. Tomt är ett fullgott svar, och ett fält som
+tvingade fram ett val hade bara gett en skräpkategori som hette "Övrigt".
+Sådana inköp räknas in i månadens totalsumma men föreslår inget utfall —
+det finns ingen rad att föreslå det för. **Tar man bort en kategori
+tappar inköpet sin kategori men inte sig självt.** Pengarna gick åt
+oavsett vad raden hette, och en omdöpt budget skall inte kunna radera
+historiken.
+
+**Abonnemangen räknas i den månad avgiften faktiskt dras.** 250 kronor om
+året belastar en månad och inte tolv med tjugoen kronor styck, eftersom
+det förra är vad kontoutdraget visar — och en sida vars siffror inte går
+att stämma av mot banken är en sida man slutar tro på. Det utslagna
+genomsnittet finns därför inte; i stället står **årskostnaden** bredvid
+månadens, för det är den frågan man ställer när man överväger att säga
+upp något. En årsavgift bär sin dragningsmånad; en gissning där hade sett
+ut som ett svar.
+
+Ett uppsagt abonnemang **pausas hellre än raderas**. Det man en gång
+betalade för är just vad man vill kunna se — och kanske ta tillbaka.
+Pausade ligger kvar i listan, räknas varken i månaden eller på året, och
+saknar nästa dragning: ett datum för något som inte dras vore ett löfte
+om en händelse som aldrig kommer.
+
 Genomgående skiljs **noll från okänt**. En ofylld kategori räknas inte in
 i en summa som ser färdig ut, och utan ifylld inkomst är "kvar att
 fördela" okänt — inte noll, som hade sett ut som ett svar.
+
+### Mina viner
+
+Sidan är två saker på en gång, med flit. Den är ett **lager** — vad som
+står i källaren just nu — och ett **minne** av vad vinerna smakade. Att
+skilja dem åt hade betytt två register där samma flaska skrevs in två
+gånger, och den dag man drack upp den hade minnet försvunnit tillsammans
+med flaskan. Läget bär därför hela flödet: **Vill prova → I källaren →
+Drucken**, samma treställiga mätare som i litteraturregistret. Ett
+drucket vin lämnar aldrig registret; det slutar bara räknas som en
+flaska man äger.
+
+**Ingenting hämtas från Vivino.** Uppgifterna skrivs in för hand och
+länken sparas, så att källan alltid går att gå tillbaka till. Det är ett
+val med en känd kostnad — man skriver av fyra reglage i stället för att
+klistra in en adress — och en känd vinst: en sida som skrapar en annan
+sida går sönder tyst den dag den andra ritas om, och man upptäcker det
+först när ett vin man litade på visar fel siffror. Bilden är samma sak
+sedd från andra hållet: den **hämtas** från sin adress och kopieras inte
+hit, så att lagret slipper bära megabyte av bilddata genom varje synk.
+
+Ett vin som inte **går** att slå upp får säga det rent ut. Knappen
+*Saknas online* är skild från att bara låta fälten stå tomma, och det är
+hela poängen: utan den ser ett omöjligt vin likadant ut som ett man inte
+hunnit med, och blir en påminnelse om ett arbete som aldrig kan bli
+gjort. Mätaren **Att fylla i** räknar bara dem som ännu inte sagt ifrån.
+
+**Vinets slag bär en bunden färg.** Rött är terrakotta i
+fördelningsstapeln, i smakkartan och i punktdiagrammet — aldrig något
+annat. Hade färgen valts per diagram vore den dekoration; nu är den det
+som gör att ögat känner igen samma vin i tre bilder.
+
+**Tre diagram, alla ritade för hand.**
+
+- **Fördelningen** som en enda stapel, växlingsbar mellan typ, land,
+  druva, producent och vinstil. Ett vin med två druvor räknas i båda
+  grupperna — frågan stapeln svarar på är "hur mycket tempranillo har
+  jag", inte "hur många viner", och det senare talet står redan i
+  mätarpanelen. Viner utan värde samlas under *Ej ifyllt* i stället för
+  att utelämnas: en stapel som tyst hoppar över halva samlingen ser ut
+  som en fullständig bild av något den inte beskriver. Bortom sex delar
+  slås svansen ihop till ett rastrerat segment, eftersom en stapel med
+  tjugofem segment inte är en översikt utan en rand.
+- **Betyg mot pris**, ditt betyg när det finns och annars Vivinos. Ett
+  vin kommer med först när det har **båda** talen. Att sätta ett saknat
+  pris till noll hade lagt det längst till vänster, där det ser ut att
+  vara ett fynd — och ett diagram som ljuger åt det hållet är precis det
+  man inte vill ha när man står och väljer flaska.
+- **Smakkartan**, två av de fyra Vivino-skalorna mot varandra. Det vin
+  man öppnat i listan framhävs i båda punktdiagrammen. Det är den
+  kopplingen som gör diagrammen till en del av sidan i stället för
+  prydnader under den. Diagrammen ritar dessutom det **filtrerade**
+  registret: ett filter i listan och ett diagram som struntar i det är
+  två svar på samma fråga, och man tror på fel av dem.
+
+**Smakskalorna har ord i båda ändar och aldrig siffror.** Ingen av de
+fyra har en bra och en dålig ände — ett strävt vin är inte sämre än ett
+lent — och en axel märkt 0–100 hade läst som ett betyg. Vivino ritar ett
+band och inte en punkt; här lagras ändå en punkt och bandet ritas runt
+den, alltid lika brett. Bredden i förlagan står för spridningen bland
+tusentals recensioner, och att härma den med ett tal man skattat ur en
+skärmbild vore påhittad precision. Ett ofyllt spår ritas med raster, så
+att "ingen uppgift" och "noll på skalan" inte ser likadana ut.
+
+**Betyget sätts som fem celler, inte fem stjärnor.** En stjärna är rund,
+är en ikon och är hämtad ur ett annat formspråk. En fyrkant kan dessutom
+fyllas delvis utan att se ut som ett ritfel, och 3,7 blir tre fyllda och
+en till sjuttio procent. Talet står alltid skrivet bredvid — skillnaden
+mellan 3,6 och 3,8 syns inte i en cell men är hela skillnaden mellan två
+viner. Ett tryck på cellen man redan står på tömmer betyget, annars
+skulle ett betyg satt av misstag gå att ändra men aldrig att ta tillbaka.
+
+Ett öppnat vin har **två lägen**, som bladen på språksidan. Läsläget är
+förvalet och ritar ett färdigt uppslag — fakta, betyg, smakprofil, noter
+och text, uppställt som förlagan. Redigeringsläget ritar samma sak som
+fält. Ett fält som ser ut som en färdig sida är ändå ett fält: markören
+hamnar i det, texten går att råka ändra, och skärmläsaren säger
+"inmatning" där det står ett värde. Läget hör till sessionen och inte
+till vinet — sitter man en kväll och skriver in tio flaskor skall inte
+varje byte kasta tillbaka en till läsläget — men vid omladdning börjar
+man i läsläge, och Escape lämnar redigeringen. Ett nyss tillagt vin
+öppnas direkt i redigering: det har ingenting att läsa.
+
+I läsläget **lämnar tomma uppgifter ingen rad efter sig**. En tabell med
+halva raderna tomma ser ut som ett formulär man glömt fylla i, och hela
+poängen med läsläget är att slippa se ett formulär. Av samma skäl står
+lagret bara under ett vin som faktiskt är i källaren: "0 flaskor" under
+ett vin man vill prova är inte en upplysning utan en gåta.
+
+**Druvor och passar till skrivs i ett `Listfalt`**, inte i ett vanligt
+fält. Det är samma sjuka som kommatecknet i sifferfältet, i en annan
+skepnad: ett kontrollerat fält som tolkar vid varje tangenttryckning gör
+det omöjligt att skriva "nötkött, pasta", eftersom "nötkött, " tolkas
+till listan `["nötkött"]` som ritas tillbaka som "nötkött" — och både
+kommat och mellanslaget är borta innan man hunnit skriva bokstaven
+efter. Fältet äger därför sin råa text medan man skriver och skickar
+bara ut den tolkade listan.
+
+Genomgående skiljs **noll från okänt**, som överallt annars. Ett vin i
+källaren utan ifyllt antal räknas som **en** flaska och inte noll: man
+har uppenbarligen vinet, annars stod det inte där. Ofyllda tal hamnar
+alltid sist när listan sorteras, oavsett åt vilket håll — ett vin utan
+pris är inte billigast, och att lägga det överst hade gjort listan
+obrukbar just när man använder den.
+
 
 ## Färgerna och genomskinligheten
 
@@ -627,6 +781,13 @@ upptäcktes.
 
 Tailwinds opacitetsskala saknar dessutom `12`. Håll dig till `10`, `15`,
 `20` och så vidare, eller skriv `border-ink/[0.12]`.
+
+Samma källordning bet en gång till på vinsidan. `.vinbild { width: 100% }`
+står efter `@tailwind utilities` och vann därför över `w-[132px]` på
+själva bilden — tyst, utan felmeddelande, och etiketten ritades lika bred
+som hela spalten. Breddklassen `.vinspalt` **omsluter** därför bilden i
+stället för att sitta på den. Regeln är enkel: en egen klass och en
+Tailwind-klass som sätter samma egenskap får aldrig dela element.
 
 **Kontrollera med den här skanningen** när något ser fel ut:
 
@@ -769,7 +930,7 @@ Demomaterialet som tidigare såddes automatiskt ligger kvar i
 
 ## Prov
 
-`npm test` kör tretton sviter:
+`npm test` kör fjorton sviter:
 
 - **Upprepningsmotorn** — 22 prov över skottår, korta månader, sommartid,
   räknade serier sedda genom sena fönster, undantag och flyttade förekomster.
@@ -787,13 +948,19 @@ Demomaterialet som tidigare såddes automatiskt ligger kvar i
   praktiken sin första rad.
 - **Kopplingarna** — 12 prov över skiftläge, blanksteg, mål som saknas och
   poster som länkar till sig själva.
-- **Språkbiblioteket** — 26 prov över tolkningen av data databasen inte
+- **Språkbiblioteket** — 38 prov över tolkningen av data databasen inte
   kontrollerar, trädstädningen (en borttagen hylla måste ta med sig sina
   mappar och blad, annars blir de kvar osynliga men synkade och växer för
   varje språk man ångrar) och markeringen.
-- **Privatekonomin** — 34 prov över all matematik. Tyngdpunkten ligger på
+- **Privatekonomin** — 52 prov över all matematik. Tyngdpunkten ligger på
   skillnaden mellan noll och okänt, på att sparmålet räknas på utfall och
   inte på avsikt, och på att prognosen håller tyst när den inte vet.
+- **Vinsidan** — 42 prov. Tyngdpunkten ligger på att ofyllt aldrig blir
+  noll (ett vin i källaren utan antal är en flaska, inte ingen), att ett
+  vin som saknar ett tal hamnar sist och inte först när listan sorteras,
+  och att de tre diagrammen hoppar över det de inte vet i stället för att
+  gissa. Här ligger också regeln att snedstreck inte delar druvor:
+  "Shiraz/Syrah" är ett namn och inte två.
 - **Fornsvenskasidan** — 24 prov, med tyngdpunkt på koden (en efterbliven
   räknare får aldrig ge en dubblett), på källhänvisningen (tomma fält
   lämnar inga skiljetecken efter sig) och på att bara `http` och `https`
@@ -806,13 +973,16 @@ Demomaterialet som tidigare såddes automatiskt ligger kvar i
   kommateckensbuggen fångad som ett prov: `"1,"` måste tolkas till samma
   tal som `"1"`, annars ser fältet sig självt som ur takt och suddar
   kommat man just skrev.
-- **Synken** — 23 prov över sammanfogningen vid krock, gravstenar,
+- **Synken** — 26 prov över sammanfogningen vid krock, gravstenar,
   offlinekön och synkmarkören. Skrivna som berättelser om två enheter, eftersom det är så
   felen uppstår: telefonen i tunnelbanan och datorn på kontoret ändrar
   samma möte och möts först en timme senare.
 - **Uppgifterna** — 16 prov, mest om sorteringen. En att göra-lista är i
   praktiken sin ordning: står fel sak överst gör man fel sak, och det
   märks inte förrän dagen är slut.
-- **Vyerna** — 12 prov som renderar varje vy och varje panel till HTML och
-  kontrollerar att de innehåller det de skall, inklusive att kolumnpackningen
-  faktiskt delar bredden mellan krockande block.
+- **Vyerna** — 31 prov som renderar varje vy, varje panel och varje sida
+  under Annat till HTML och kontrollerar att de innehåller det de skall,
+  inklusive att kolumnpackningen faktiskt delar bredden mellan krockande
+  block. Sidornas block ritas dessutom i sitt REDIGERINGSläge, som är
+  där de skiljer sig mest från visningsläget och där ett fel annars bara
+  visar sig i webbläsaren.
