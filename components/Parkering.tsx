@@ -255,7 +255,7 @@ export default function Parkering({
       <div className="flex gap-1.5 mb-1.5">
         <input
           className="falt !text-[0.6rem] !py-1"
-          placeholder="Träffa Anna…"
+          placeholder="…"
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
