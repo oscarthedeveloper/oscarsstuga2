@@ -253,6 +253,57 @@ create policy "egna sidor"
   with check (agare = auth.uid());
 
 -- -------------------------------------------------------------------
+-- LAPPAR
+-- Parkeringen: det som skall in i kalendern men ännu inte fått en tid.
+--
+-- Egen tabell och inte en kolumn på `uppgifter`, av samma skäl som
+-- händelser och uppgifter har varsin: en lapp bockas inte av, den BLIR
+-- något. När den dras in i rutnätet skapas en händelse och lappen
+-- gravsätts — den lever alltså kort, och det är meningen.
+--
+-- `minuter` är hur lång händelsen blir vid släppet. Den sitter på lappen
+-- och inte på släppet: en lunch är nittio minuter och ett kaffe trettio,
+-- och det vet man när man skriver lappen.
+--
+-- TABELLEN TILLKOM EFTER ATT APPEN REDAN VAR I DRIFT. Synkmotorn tål
+-- därför att den saknas: lapparna stannar då på enheten och börjar
+-- synka av sig själva samma dag den här filen körts. Ett vanligt fel
+-- hade stoppat synkningen av allt annat också.
+-- -------------------------------------------------------------------
+create table if not exists public.lappar (
+  agare       uuid        not null default auth.uid()
+                          references auth.users (id) on delete cascade,
+  id          text        not null,
+  titel       text        not null default '',
+  minuter     integer     not null default 60,
+  kalender_id text        not null default 'arbete',
+  anteckning  text        not null default '',
+  skapad      timestamptz not null default now(),
+  andrad      timestamptz not null,
+  raderad     timestamptz,
+  synk_vid    timestamptz not null default now(),
+  primary key (agare, id)
+);
+
+drop trigger if exists synk_vid_lappar on public.lappar;
+create trigger synk_vid_lappar
+  before insert or update on public.lappar
+  for each row execute function public.satt_synk_vid();
+
+create index if not exists lappar_synk_idx
+  on public.lappar (agare, synk_vid);
+
+alter table public.lappar enable row level security;
+
+drop policy if exists "egna lappar" on public.lappar;
+create policy "egna lappar"
+  on public.lappar
+  for all
+  to authenticated
+  using (agare = auth.uid())
+  with check (agare = auth.uid());
+
+-- -------------------------------------------------------------------
 -- INDEX
 -- Varje synkrunda frågar "vad har hänt sedan X, för mig". Utan det här
 -- indexet blir det en full tabellgenomgång vid varje appstart.

@@ -23,6 +23,7 @@ import {
   useState,
 } from "react";
 import type { Forekomst, Layout } from "@/lib/typer";
+import { klamMinuter, type Slappning } from "@/lib/lappar";
 import { useMobil } from "@/lib/anvandMedia";
 import { laggUt, laggUtBand, type Packbar } from "@/lib/layout";
 import {
@@ -70,6 +71,15 @@ export interface RutnatProps {
   onSkapa(start: Date, slut: Date, heldag: boolean): void;
   /** Visar veckonummer i huvudet. */
   visaVecka?: boolean;
+  /**
+   * En lapp från parkeringen som svävar över rutnätet.
+   *
+   * Kommer utifrån och inte ur rutnätets eget `drag`: lappen fångar
+   * pekaren i sidopanelen, och rutnätets hanterare hör därför aldrig av
+   * sig under gesten. Rutnätet får läget nedskickat och ritar var
+   * lappen skulle landa; sidopanelen sköter själva draget.
+   */
+  slapper?: Slappning | null;
 }
 
 interface Segment extends Packbar {
@@ -116,6 +126,7 @@ export default function TidsRutnat({
   onFlytta,
   onSkapa,
   visaVecka,
+  slapper = null,
 }: RutnatProps) {
   const rutnatRef = useRef<HTMLDivElement | null>(null);
   const skrollRef = useRef<HTMLDivElement | null>(null);
@@ -685,6 +696,9 @@ export default function TidsRutnat({
                   className="dagkolumn flex-1"
                   data-helg={arHelg(d) ? "1" : "0"}
                   data-idag={idag ? "1" : "0"}
+                  data-dagnyckel={dn}
+                  data-timhojd={timhojd}
+                  data-slappmal={slapper?.mal?.dagnyckel === dn ? "1" : "0"}
                   onPointerDown={paTomtNed}
                   onPointerMove={paRorelse}
                   onPointerUp={(e) => paUpp(e)}
@@ -797,6 +811,32 @@ export default function TidsRutnat({
                       >
                         <span className="handelse-tid !opacity-100">
                           {klocka(drag.start)}–{klocka(drag.slut)}
+                        </span>
+                      </div>
+                    )}
+
+                  {/* Var lappen från parkeringen skulle landa. Ritas
+                      som en ny händelse men med lappens text i, så att
+                      man ser VAD som landar och inte bara när. */}
+                  {slapper?.mal?.dagnyckel === dn &&
+                    slapper.mal.minut !== null && (
+                      <div
+                        className="lappritning"
+                        style={{
+                          top: (slapper.mal.minut / 60) * timhojd,
+                          height: Math.max(
+                            13,
+                            (klamMinuter(slapper.minuter) / 60) * timhojd
+                          ),
+                          left: 1,
+                          right: 1,
+                        }}
+                      >
+                        <span className="handelse-tid !opacity-100">
+                          {klocka(medMinuter(d, slapper.mal.minut))}
+                        </span>
+                        <span className="handelse-titel">
+                          {slapper.titel || "Utan titel"}
                         </span>
                       </div>
                     )}

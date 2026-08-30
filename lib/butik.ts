@@ -14,6 +14,7 @@ import type {
   Anteckning,
   Handelse,
   Kalender,
+  Lapp,
   Prioritet,
   SidData,
   Sida,
@@ -29,6 +30,7 @@ export interface Ogonblick {
   uppgifter: Uppgift[];
   anteckningar: Anteckning[];
   sidor: Sida[];
+  lappar: Lapp[];
 }
 
 export interface Lager {
@@ -66,6 +68,20 @@ export function klamTon(ton: number): number {
   return ((Math.round(ton) % ANTAL_TONER) + ANTAL_TONER) % ANTAL_TONER;
 }
 
+/**
+ * Lappens längd, klämd till [15, 1440] minuter.
+ *
+ * Ligger HÄR och inte i `lib/lappar.ts`, trots att det är parkeringens
+ * regel. Lagret måste kunna normalisera en lapp utan att dra in
+ * parkeringens övriga logik, och den vägen hade blivit en cirkel:
+ * lappar.ts läser typerna, butiken skulle läsa lappar.ts.
+ */
+export function klamLangd(n: unknown): number {
+  const t = typeof n === "number" ? n : Number(n);
+  if (!Number.isFinite(t)) return 60;
+  return Math.min(1440, Math.max(15, Math.round(t)));
+}
+
 /** Nu, som ISO-sträng i UTC. Alla synkstämplar är UTC — aldrig lokala. */
 export function nu(): string {
   return new Date().toISOString();
@@ -92,6 +108,7 @@ export class LokaltLager implements Lager {
         uppgifter: (data.uppgifter ?? []).map(normaliseraUppgift),
         anteckningar: (data.anteckningar ?? []).map(normaliseraAnteckning),
         sidor: (data.sidor ?? []).map(normaliseraSida),
+        lappar: (data.lappar ?? []).map(normaliseraLapp),
       });
     } catch {
       return null;
@@ -137,6 +154,7 @@ export function stadaGravstenar(o: Ogonblick, idag = new Date()): Ogonblick {
     uppgifter: o.uppgifter.filter(lever),
     anteckningar: o.anteckningar.filter(lever),
     sidor: o.sidor.filter(lever),
+    lappar: o.lappar.filter(lever),
   };
 }
 
@@ -209,6 +227,23 @@ export function normaliseraAnteckning(a: Partial<Anteckning>): Anteckning {
     andrad: a.andrad ?? a.skapad ?? nu(),
     raderad: a.raderad ?? null,
     synkad: a.synkad ?? false,
+  };
+}
+
+export function normaliseraLapp(l: Partial<Lapp>): Lapp {
+  return {
+    id: l.id ?? nyId(),
+    titel: l.titel ?? "",
+    // Klämd här och inte bara i gränssnittet: en längd på noll ger en
+    // händelse utan varaktighet, som inte går att ta tag i när den väl
+    // ligger i rutnätet.
+    minuter: klamLangd(l.minuter),
+    kalenderId: l.kalenderId ?? "arbete",
+    anteckning: l.anteckning ?? "",
+    skapad: l.skapad ?? nu(),
+    andrad: l.andrad ?? l.skapad ?? nu(),
+    raderad: l.raderad ?? null,
+    synkad: l.synkad ?? false,
   };
 }
 
@@ -348,9 +383,9 @@ export function taBortKalender(
       ? flyttaTill
       : null;
 
-  // Uppgifter och anteckningar delar kalender med händelserna och måste
-  // följa med samma väg. Glöms de bort blir de osynliga men ligger kvar
-  // i lagret.
+  // Uppgifter, anteckningar och lappar delar kalender med händelserna
+  // och måste följa med samma väg. Glöms de bort blir de osynliga men
+  // ligger kvar i lagret.
   const flyttaEller = <T extends Synkbar & { kalenderId: string }>(x: T): T => {
     if (x.kalenderId !== id || x.raderad) return x;
     return flyttmal
@@ -365,6 +400,7 @@ export function taBortKalender(
     handelser: o.handelser.map(flyttaEller),
     uppgifter: o.uppgifter.map(flyttaEller),
     anteckningar: o.anteckningar.map(flyttaEller),
+    lappar: o.lappar.map(flyttaEller),
     // Sidorna hör inte till någon kalender och berörs inte.
     sidor: o.sidor,
   };

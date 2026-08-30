@@ -31,6 +31,7 @@ import type {
   Prioritet,
   Synkbar,
   Upprepning,
+  Lapp,
   Uppgift,
 } from "./typer";
 import {
@@ -40,6 +41,7 @@ import {
   TABELL_HANDELSER,
   TABELL_SIDOR,
   TABELL_KALENDRAR,
+  TABELL_LAPPAR,
   TABELL_UPPGIFTER,
   hamtaKlient,
 } from "./supabase";
@@ -48,6 +50,7 @@ import {
   normaliseraAnteckning,
   normaliseraSida,
   normaliseraKalender,
+  normaliseraLapp,
   normaliseraUppgift,
   type Ogonblick,
 } from "./butik";
@@ -273,6 +276,69 @@ function uppgiftFranRad(r: UppgiftRad): Uppgift {
   });
 }
 
+interface LappRad {
+  agare: string;
+  id: string;
+  titel: string;
+  minuter: number;
+  kalender_id: string;
+  anteckning: string;
+  skapad: string;
+  andrad: string;
+  raderad: string | null;
+  synk_vid?: string;
+}
+
+function lappTillRad(l: Lapp, agare: string): LappRad {
+  return {
+    agare,
+    id: l.id,
+    titel: l.titel,
+    minuter: l.minuter,
+    kalender_id: l.kalenderId,
+    anteckning: l.anteckning,
+    skapad: l.skapad,
+    andrad: l.andrad,
+    raderad: l.raderad,
+  };
+}
+
+function lappFranRad(r: LappRad): Lapp {
+  return normaliseraLapp({
+    id: r.id,
+    titel: r.titel,
+    minuter: r.minuter,
+    kalenderId: r.kalender_id,
+    anteckning: r.anteckning ?? "",
+    skapad: r.skapad,
+    andrad: r.andrad,
+    raderad: r.raderad ?? null,
+    synkad: true,
+  });
+}
+
+/**
+ * Sant när felet betyder "den där tabellen finns inte".
+ *
+ * Parkeringen tillkom efter att appen redan hade riktiga användare med
+ * ett Supabase-projekt igång, och tabellen skapas för hand med SQL:en i
+ * `supabase/schema.sql`. Innan den körts skulle ett vanligt kast göra
+ * att HELA synkningen slutade fungera — händelser, uppgifter,
+ * anteckningar och allt — för en funktion man kanske inte ens använder.
+ *
+ * Därför tigs just det här felet ihjäl: lapparna stannar på enheten och
+ * börjar synka av sig själva samma dag tabellen finns. Alla andra fel
+ * kastas som vanligt; en tyst synk är annars det värsta som finns.
+ */
+function tabellenSaknas(meddelande: string): boolean {
+  const m = meddelande.toLowerCase();
+  return (
+    m.includes("does not exist") ||
+    m.includes("could not find the table") ||
+    m.includes("schema cache")
+  );
+}
+
 interface AnteckningRad {
   agare: string;
   id: string;
@@ -444,7 +510,8 @@ export function antalIvag(o: Ogonblick): number {
     osynkade(o.kalendrar).length +
     osynkade(o.uppgifter).length +
     osynkade(o.anteckningar).length +
-    osynkade(o.sidor).length
+    osynkade(o.sidor).length +
+    osynkade(o.lappar).length
   );
 }
 
@@ -491,7 +558,7 @@ export async function synka(
   };
 
   /* --- 1. Hämta allt som rört sig sedan förra körningen ------------ */
-  const [svarH, svarK, svarU, svarA, svarS] = await Promise.all([
+  const [svarH, svarK, svarU, svarA, svarS, svarL] = await Promise.all([
     klient
       .from(TABELL_HANDELSER)
       .select("*")
@@ -517,6 +584,11 @@ export async function synka(
       .select("*")
       .gt("synk_vid", franMarkor)
       .order("synk_vid", { ascending: true }),
+    klient
+      .from(TABELL_LAPPAR)
+      .select("*")
+      .gt("synk_vid", franMarkor)
+      .order("synk_vid", { ascending: true }),
   ]);
 
   if (svarH.error) throw new Error(oversattRadfel(svarH.error.message));
@@ -524,6 +596,11 @@ export async function synka(
   if (svarU.error) throw new Error(oversattRadfel(svarU.error.message));
   if (svarA.error) throw new Error(oversattRadfel(svarA.error.message));
   if (svarS.error) throw new Error(oversattRadfel(svarS.error.message));
+  // Saknas lapptabellen ännu har Oscar inte kört SQL:en. Se `tabellenSaknas`.
+  const lapptabellFinns = !svarL.error || !tabellenSaknas(svarL.error.message);
+  if (svarL.error && lapptabellFinns) {
+    throw new Error(oversattRadfel(svarL.error.message));
+  }
 
   // Provraden från diagnosen bär ett internt id och hör inte hemma i
   // kalendern. Markören flyttas ändå av den, vilket är riktigt: den har
@@ -543,11 +620,15 @@ export async function synka(
   const fjarrS = ((svarS.data ?? []) as SidaRad[]).filter(
     (r) => !r.id.startsWith(INTERNT)
   );
+  const fjarrL = ((svarL.data ?? []) as LappRad[]).filter(
+    (r) => !r.id.startsWith(INTERNT)
+  );
   for (const r of (svarH.data ?? []) as HandelseRad[]) senare(r.synk_vid);
   for (const r of (svarK.data ?? []) as KalenderRad[]) senare(r.synk_vid);
   for (const r of (svarU.data ?? []) as UppgiftRad[]) senare(r.synk_vid);
   for (const r of (svarA.data ?? []) as AnteckningRad[]) senare(r.synk_vid);
   for (const r of (svarS.data ?? []) as SidaRad[]) senare(r.synk_vid);
+  for (const r of (svarL.data ?? []) as LappRad[]) senare(r.synk_vid);
   let data: Ogonblick = {
     handelser: sammanfoga(lokal.handelser, fjarrH.map(franRad)),
     kalendrar: sammanfogaKalendrar(
@@ -560,6 +641,7 @@ export async function synka(
       fjarrA.map(anteckningFranRad)
     ),
     sidor: sammanfoga(lokal.sidor, fjarrS.map(sidaFranRad)),
+    lappar: sammanfoga(lokal.lappar, fjarrL.map(lappFranRad)),
   };
 
   /* --- 2. Skjut upp det som molnet inte sett ----------------------- */
@@ -568,6 +650,9 @@ export async function synka(
   const uppU = osynkade(data.uppgifter);
   const uppA = osynkade(data.anteckningar);
   const uppS = osynkade(data.sidor);
+  // Utan tabell finns ingenstans att skicka. Lapparna stannar osynkade
+  // och går iväg av sig själva den dag tabellen finns.
+  const uppL = lapptabellFinns ? osynkade(data.lappar) : [];
 
   // Kalendrarna först: en händelse pekar på sin kalender, och den bör
   // finnas uppe innan händelsen gör det. Databasen har medvetet ingen
@@ -640,12 +725,26 @@ export async function synka(
     }
   }
 
+  if (uppL.length > 0) {
+    for (const klump of dela(uppL, 200)) {
+      const svar = await klient
+        .from(TABELL_LAPPAR)
+        .upsert(
+          klump.map((l) => lappTillRad(l, anvandarId)),
+          { onConflict: "agare,id" }
+        )
+        .select("id");
+      if (svar.error) throw new Error(oversattRadfel(svar.error.message));
+    }
+  }
+
   // Först när skrivningen gått igenom får posterna räknas som synkade.
   const uppH_ider = new Set(uppH.map((h) => h.id));
   const uppK_ider = new Set(uppK.map((k) => k.id));
   const uppU_ider = new Set(uppU.map((u) => u.id));
   const uppA_ider = new Set(uppA.map((a) => a.id));
   const uppS_ider = new Set(uppS.map((x) => x.id));
+  const uppL_ider = new Set(uppL.map((l) => l.id));
   data = {
     handelser: data.handelser.map((h) =>
       uppH_ider.has(h.id) ? { ...h, synkad: true } : h
@@ -662,6 +761,9 @@ export async function synka(
     sidor: data.sidor.map((x) =>
       uppS_ider.has(x.id) ? { ...x, synkad: true } : x
     ),
+    lappar: data.lappar.map((l) =>
+      uppL_ider.has(l.id) ? { ...l, synkad: true } : l
+    ),
   };
 
   skrivMarkor(anvandarId, nyMarkor);
@@ -674,8 +776,15 @@ export async function synka(
       fjarrK.length +
       fjarrU.length +
       fjarrA.length +
-      fjarrS.length,
-    upp: uppH.length + uppK.length + uppU.length + uppA.length + uppS.length,
+      fjarrS.length +
+      fjarrL.length,
+    upp:
+      uppH.length +
+      uppK.length +
+      uppU.length +
+      uppA.length +
+      uppS.length +
+      uppL.length,
   };
 }
 

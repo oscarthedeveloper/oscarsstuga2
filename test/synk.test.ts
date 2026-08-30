@@ -260,6 +260,7 @@ prov("gravstenar städas först när de nått molnet", () => {
     uppgifter: [],
     anteckningar: [],
     sidor: [],
+    lappar: [],
   };
   const kvar = stadaGravstenar(o, new Date("2026-08-12T00:00:00Z"));
   // Den synkade gravstenen får försvinna; den osynkade måste vänta,
@@ -275,7 +276,8 @@ prov("färska gravstenar rörs inte", () => {
   const kvar = stadaGravstenar(
     { handelser: [fersk], kalendrar: [], uppgifter: [],
     anteckningar: [],
-    sidor: [] },
+    sidor: [],
+    lappar: [] },
     new Date("2026-08-12T00:00:00Z")
   );
   lika(kvar.handelser.length, 1);
@@ -300,6 +302,7 @@ prov("borttagen kalender tar med sig sina händelser som gravstenar", () => {
     uppgifter: [],
     anteckningar: [],
     sidor: [],
+    lappar: [],
   };
   const ut = taBortKalender(o, "s", null);
   lika(levande(ut.kalendrar).map((x) => x.id), ["a"]);
@@ -317,6 +320,7 @@ prov("flyttade händelser stämplas om så de skickas upp", () => {
     uppgifter: [],
     anteckningar: [],
     sidor: [],
+    lappar: [],
   };
   const ut = taBortKalender(o, "s", "a");
   lika(ut.handelser[0].kalenderId, "a");
@@ -335,6 +339,7 @@ prov("osynkade poster räknas rätt", () => {
     uppgifter: [],
     anteckningar: [],
     sidor: [],
+    lappar: [],
   };
   lika(osynkade(o.handelser).map((x) => x.id), ["b"]);
   lika(antalIvag(o), 2, "kalendern är också osynkad");
@@ -350,9 +355,14 @@ prov("en ändring markerar posten som osynkad", () => {
 prov("en offlinekö överlever flera varv utan nät", () => {
   // Tre ändringar i rad utan synk emellan. Alla tre måste ligga kvar i
   // kön; ingen får tappas bort bara för att nästa hann före.
-  let o: Ogonblick = { handelser: [], kalendrar: [], uppgifter: [],
+  let o: Ogonblick = {
+    handelser: [],
+    kalendrar: [],
+    uppgifter: [],
     anteckningar: [],
-    sidor: [] };
+    sidor: [],
+    lappar: [],
+  };
   o = { ...o, handelser: [h("a", "Ett", T("0T10:00:00Z"))] };
   o = { ...o, handelser: [...o.handelser, h("b", "Två", T("0T11:00:00Z"))] };
   o = { ...o, handelser: [...o.handelser, h("c", "Tre", T("0T12:00:00Z"))] };
@@ -413,6 +423,7 @@ provAsync("en synkrunda flyttar markören ENDAST med hämtade rader", async () =
     uppgifter: [],
     anteckningar: [],
     sidor: [],
+    lappar: [],
   };
 
   await synka(lokal, anvandare, klient as never);
@@ -450,7 +461,8 @@ provAsync("markören flyttas fram av hämtade rader", async () => {
   const resultat = await synka(
     { handelser: [], kalendrar: [], uppgifter: [],
     anteckningar: [],
-    sidor: [] },
+    sidor: [],
+    lappar: [] },
     anvandare,
     klient as never
   );
@@ -522,6 +534,7 @@ provAsync("en sida skickas upp till sidor-tabellen", async () => {
         synkad: false,
       },
     ],
+    lappar: [],
   };
 
   const resultat = await synka(lokal, anvandare, klient as never);
@@ -569,6 +582,7 @@ provAsync("en sida från molnet sammanfogas in", async () => {
     uppgifter: [],
     anteckningar: [],
     sidor: [],
+    lappar: [],
   };
 
   const resultat = await synka(lokal, anvandare, klient as never);
@@ -618,6 +632,7 @@ provAsync("nyare lokal sida vinner över molnets", async () => {
         synkad: false,
       },
     ],
+    lappar: [],
   };
 
   const resultat = await synka(lokal, anvandare, klient as never);

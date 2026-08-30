@@ -6,8 +6,11 @@
  */
 
 import { useMemo } from "react";
-import type { Forekomst, Vy } from "@/lib/typer";
+import type { Forekomst, Lapp, Vy } from "@/lib/typer";
+import type { Slappmal, Slappning } from "@/lib/lappar";
+import { STANDARDLANGD } from "@/lib/lappar";
 import { useButik } from "./Butik";
+import Parkering from "./Parkering";
 import {
   addDagar,
   addManader,
@@ -33,6 +36,10 @@ export interface SidopanelProps {
   /** Sant när panelen visas som utfällbar låda på en smal skärm. */
   lada?: boolean;
   onStang?(): void;
+  /** Läget medan en lapp dras. Skickas upp så att rutnätet kan rita det. */
+  onSlapper(s: Slappning | null): void;
+  /** Lappen landade på en dag i kalendern. */
+  onSlapp(lapp: Lapp, mal: Slappmal): void;
 }
 
 export default function Sidopanel({
@@ -44,9 +51,20 @@ export default function Sidopanel({
   onHanteraKalendrar,
   lada,
   onStang,
+  onSlapper,
+  onSlapp,
 }: SidopanelProps) {
-  const { kalendrar, vaxlaKalender, visaEndast, visaAlla, antalIKalender } =
-    useButik();
+  const {
+    kalendrar,
+    vaxlaKalender,
+    visaEndast,
+    visaAlla,
+    antalIKalender,
+    lappar,
+    skapaLapp,
+    sparaLapp,
+    taBortLapp,
+  } = useButik();
   const nu = new Date();
   const rutor = useMemo(() => manadsrutnat(peka), [peka]);
 
@@ -212,6 +230,31 @@ export default function Sidopanel({
           Ny kalender…
         </button>
       </div>
+
+      {/*
+        Parkeringen står mellan filtret och dagens lista, och det är inte
+        godtyckligt: den hör till det man PLANERAR, och dagens lista till
+        det som redan står inbokat. Ligger den under dagens lista hamnar
+        den dessutom utanför skärmen så fort dagen är full — vilket är
+        precis de dagar man behöver flytta något.
+      */}
+      <Parkering
+        lappar={lappar}
+        kalendrar={kalendrar}
+        onSkapa={(titel) =>
+          skapaLapp({
+            titel,
+            minuter: STANDARDLANGD,
+            // Samma kalender som en ny händelse får, så att lappen bär
+            // sin färg redan i parkeringen.
+            kalenderId: kalendrar[0]?.id ?? "arbete",
+          })
+        }
+        onAndra={sparaLapp}
+        onTaBort={taBortLapp}
+        onSlapper={onSlapper}
+        onSlapp={onSlapp}
+      />
 
       {/* Dagens lista */}
       <div className="flex-1 min-h-0 overflow-y-auto tunnskroll border-t border-[rgb(253_251_239/0.2)] px-2.5 py-2">

@@ -2202,6 +2202,133 @@ input.dokdeck:focus {
 }
 
 /* ==================================================================
+   PARKERINGEN
+
+   Lappar i sidopanelen: det som skall in i kalendern men ännu inte
+   fått en tid. De ritas i panelens vokabulär — pappersfärgad text på
+   bläck, hårfina linjer, inga rundade hörn — och skiljer sig från
+   dagens lista på en enda punkt: de går att ta tag i.
+   ================================================================== */
+.lapp {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.28rem 0.3rem;
+  border: 1px solid rgb(253 251 239 / 0.22);
+  margin-bottom: 0.25rem;
+  cursor: grab;
+  /* Fingret måste kunna rulla listan. Långtrycket tar över gesten och
+     sätter `touch-action: none` för hand när draget börjar — samma
+     ordning som blocken i rutnätet. */
+  touch-action: pan-y;
+  transition: border-color 120ms linear, opacity 120ms linear;
+}
+
+.lapp:hover {
+  border-color: rgb(253 251 239 / 0.55);
+}
+
+.lapp[data-oppen="1"] {
+  border-color: var(--paper);
+}
+
+/* Lappen som är i luften bleknar men försvinner inte. En rad som
+   plötsligt är borta ur listan ser ut som en radering, och draget går
+   att ångra ända fram till släppet. */
+.lapp[data-drar="1"] {
+  opacity: 0.3;
+  cursor: grabbing;
+}
+
+.lappprick {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.lapptitel {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.6rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.lappform {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.35rem 0.3rem 0.5rem;
+  margin: -0.2rem 0 0.4rem;
+  border-left: 1px solid rgb(253 251 239 / 0.35);
+  padding-left: 0.5rem;
+}
+
+/*
+ * Spöket som följer pekaren.
+ *
+ * `pointer-events: none` är inte kosmetik utan förutsättningen för hela
+ * gesten: `elementFromPoint` hade annars träffat spöket i stället för
+ * rutnätet under det, och lappen aldrig hittat en dag att landa på.
+ *
+ * Ligger fast i fönstret och inte i panelen. En absolut position hade
+ * klippts av panelens rullning så fort lappen lämnade den.
+ */
+.lappspoke {
+  position: fixed;
+  z-index: 200;
+  pointer-events: none;
+  transform: translate(10px, -50%);
+  max-width: 190px;
+  padding: 0.25rem 0.45rem;
+  font-size: 0.6rem;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid var(--ink);
+  box-shadow: 0 3px 12px rgb(17 17 17 / 0.28);
+}
+
+/* Över en dag byter spöket till accent. Det är den enda återkopplingen
+   som säger "här landar den" innan man vågar släppa. */
+.lappspoke[data-over="1"] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 3px 12px rgb(17 17 17 / 0.28);
+}
+
+/*
+ * Dagkolumnen som är släppmål.
+ *
+ * Svagare än månadsrutans motsvarighet, och det är avsiktligt: en
+ * månadsruta är en liten fyrkant, en dagkolumn är hela skärmens höjd,
+ * och samma täthet över den ytan blir en färgad vägg. Accenten bärs i
+ * appen bara av det som kräver uppmärksamhet — här räcker en antydan om
+ * vilken dag som är vald, eftersom den streckade ramen redan säger var
+ * lappen landar.
+ */
+.dagkolumn[data-slappmal="1"] {
+  background: rgb(255 92 57 / 0.045);
+  box-shadow: inset 1px 0 0 var(--accent), inset -1px 0 0 var(--accent);
+}
+
+/* Förhandsvisningen där lappen landar. Ritas som en ny händelse men med
+   lappens text i, så att man ser VAD som landar och inte bara när. */
+.lappritning {
+  position: absolute;
+  border: 1px dashed var(--accent);
+  background: rgb(255 92 57 / 0.12);
+  pointer-events: none;
+  z-index: 50;
+  padding: 2px 5px;
+  overflow: hidden;
+}
+
+/* ==================================================================
    MINA VINER
 
    Sidan lånar registerraden, lägesmätaren och andelsstapeln från

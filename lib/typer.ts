@@ -181,6 +181,42 @@ export interface Anteckning extends Synkbar {
   skapad: string;
 }
 
+/**
+ * En lapp i parkeringen — det som skall in i kalendern men ännu inte
+ * fått en tid.
+ *
+ * Det FJÄRDE benet, och skilt från de tre andra av samma skäl som de är
+ * skilda från varandra. "Träffa Anna någon gång i veckan" är inte en
+ * händelse, för en händelse äger en plats i tiden och det här har ingen.
+ * Det är inte heller en uppgift, för en uppgift bockas av när den är
+ * gjord — en lapp bockas inte av, den BLIR något: den dras in i rutnätet
+ * och är då en händelse, varpå lappen är förbrukad.
+ *
+ * Alternativet hade varit att låta att göra-listan bära dem. Kostnaden
+ * för det är att den dagliga listan fylls av möten man inte kan göra
+ * någonting åt förrän de fått en tid, och en lista där hälften av
+ * raderna inte går att bocka av slutar man läsa.
+ *
+ * Kalendern delas med de andra tre, så att lappen bär sin färg redan i
+ * parkeringen och håller den genom släppet.
+ */
+export interface Lapp extends Synkbar {
+  id: string;
+  titel: string;
+  /**
+   * Hur lång händelsen blir när lappen landar, i minuter.
+   *
+   * Sitter på LAPPEN och inte på släppet. En lunch är nittio minuter och
+   * ett kaffe trettio, och det vet man när man skriver lappen — inte när
+   * man drar den. Att alltid landa på en timme hade betytt en
+   * efterjustering per lapp, varje gång.
+   */
+  minuter: number;
+  kalenderId: string;
+  anteckning: string;
+  skapad: string;
+}
+
 export const PRIORITETER: {
   varde: Prioritet;
   namn: string;

@@ -18,6 +18,7 @@ import ButikProvider from "../components/Butik";
 import KalenderApp from "../components/KalenderApp";
 import HandelsePanel from "../components/HandelsePanel";
 import Kommandopalett, { tolkaDatum } from "../components/Kommandopalett";
+import Parkering from "../components/Parkering";
 import KalenderPanel from "../components/KalenderPanel";
 import AttGora from "../components/AttGora";
 import Anteckningar from "../components/Anteckningar";
@@ -32,7 +33,7 @@ import Vinuppslag from "../components/sidor/block/Vinuppslag";
 import Bladtrad from "../components/sidor/block/Bladtrad";
 import Blockredigerare from "../components/sidor/block/Blockredigerare";
 import { tolkaVinData } from "../lib/sidor/viner";
-import { normaliseraSida } from "../lib/butik";
+import { normaliseraLapp, normaliseraSida } from "../lib/butik";
 import { SIDOR } from "../components/sidor/register";
 import { STANDARDKALENDRAR } from "../lib/butik";
 import { provdata } from "./provdata";
@@ -715,6 +716,124 @@ prov("uppslaget skriver ut åt vilket håll ni är oense", () => {
     viner: [{ id: "a", namn: "Chablis", egetBetyg: 3.2, vivinoBetyg: 4.1 }],
   }).viner[0];
   innehaller(renderToStaticMarkup(h(Vinuppslag, { vin })), "Du tyckte sämre");
+});
+
+prov("parkeringen ritar lapparna och det tomma läget", () => {
+  const utanLappar = renderToStaticMarkup(
+    h(Parkering, {
+      lappar: [],
+      kalendrar: STANDARDKALENDRAR,
+      onSkapa: tomt,
+      onAndra: tomt,
+      onTaBort: tomt,
+      onSlapper: tomt,
+      onSlapp: tomt,
+    })
+  );
+  innehaller(utanLappar, "Utan datum");
+  // Ett tomt läge som bara är en tom yta säger ingenting om vad rutan
+  // är till för.
+  innehaller(utanLappar, "dra ut det när dagen är bestämd");
+
+  const medLappar = renderToStaticMarkup(
+    h(Parkering, {
+      lappar: [
+        normaliseraLapp({
+          id: "a",
+          titel: "Träffa Anna",
+          minuter: 90,
+          kalenderId: "privat",
+        }),
+      ],
+      kalendrar: STANDARDKALENDRAR,
+      onSkapa: tomt,
+      onAndra: tomt,
+      onTaBort: tomt,
+      onSlapper: tomt,
+      onSlapp: tomt,
+    })
+  );
+  innehaller(medLappar, "Träffa Anna");
+  // Längden står på lappen — det är den som avgör hur lång händelsen
+  // blir, och den skall gå att läsa av utan att öppna raden.
+  innehaller(medLappar, "1 h 30");
+  innehaller(medLappar, "lapp");
+});
+
+prov("dagkolumnen bär det en lapp behöver för att hitta hem", () => {
+  /*
+   * Draget korsar en gräns React inte har någon väg över: lappen fångar
+   * pekaren i sidopanelen och läser sedan rutnätet ur DOM. Försvinner
+   * `data-dagnyckel` eller `data-timhojd` går släppet sönder TYST — man
+   * kan dra hur mycket man vill, ingenting landar. Därför provas de som
+   * det gränssnitt de faktiskt är.
+   */
+  const dagar = [tolka("2026-08-12"), tolka("2026-08-13")];
+  const html = renderToStaticMarkup(
+    h(TidsRutnat, {
+      dagar,
+      forekomster: [],
+      timhojd: 52,
+      vald: null,
+      onValj: tomt,
+      onOppna: tomt,
+      onFlytta: tomt,
+      onSkapa: tomt,
+    })
+  );
+  innehaller(html, 'data-dagnyckel="2026-08-12"');
+  innehaller(html, 'data-dagnyckel="2026-08-13"');
+  innehaller(html, 'data-timhojd="52"');
+});
+
+prov("rutnätet ritar var lappen skulle landa", () => {
+  const html = renderToStaticMarkup(
+    h(TidsRutnat, {
+      dagar: [tolka("2026-08-12"), tolka("2026-08-13")],
+      forekomster: [],
+      timhojd: 52,
+      vald: null,
+      onValj: tomt,
+      onOppna: tomt,
+      onFlytta: tomt,
+      onSkapa: tomt,
+      slapper: {
+        id: "a",
+        titel: "Träffa Anna",
+        minuter: 90,
+        ton: 1,
+        mal: { dagnyckel: "2026-08-13", minut: 585 },
+      },
+    })
+  );
+  // Titeln syns i förhandsvisningen: man skall se VAD som landar och
+  // inte bara när.
+  innehaller(html, "Träffa Anna");
+  innehaller(html, "09:45");
+  innehaller(html, "lappritning");
+  // Och bara den dag pekaren pekar på lyser upp.
+  innehaller(html, 'data-dagnyckel="2026-08-13" data-timhojd="52" data-slappmal="1"');
+});
+
+prov("utan en lapp i luften lyser ingen dag", () => {
+  const html = renderToStaticMarkup(
+    h(TidsRutnat, {
+      dagar: [tolka("2026-08-12")],
+      forekomster: [],
+      timhojd: 52,
+      vald: null,
+      onValj: tomt,
+      onOppna: tomt,
+      onFlytta: tomt,
+      onSkapa: tomt,
+    })
+  );
+  if (html.includes('data-slappmal="1"')) {
+    throw new Error("en dag lyste upp utan att något drogs");
+  }
+  if (html.includes("lappritning")) {
+    throw new Error("en förhandsvisning ritades utan att något drogs");
+  }
 });
 
 prov("trädsidlisten visar hela hyllan med filsystemets vokabulär", () => {

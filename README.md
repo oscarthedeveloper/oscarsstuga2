@@ -120,6 +120,77 @@ kalendern prioriteringen i stället för du.
 Ett förfallodatum är frivilligt. Passeras det markeras raden med accent
 och räknas i fotens *försenade*.
 
+## Parkeringen
+
+I sidopanelens svarta fält, under kalendrarna, ligger **Utan datum**: det
+som skall in i kalendern men ännu inte har fått en tid. "Träffa Anna
+någon gång i veckan" är en sådan sak. Skriv raden, tryck `⏎`, och dra
+sedan ut lappen i rutnätet när dagen är bestämd. Den landar där du
+släpper, blir en händelse, och lappen är därmed förbrukad.
+
+**En fjärde sort, och det är ett val.** Lappen är varken en händelse
+eller en uppgift. Inte en händelse, för en händelse äger en plats i
+tiden och det här har ingen. Inte en uppgift, för en uppgift bockas av
+när den är gjord — en lapp bockas inte av, den *blir* något. Alternativet
+hade varit att låta att göra-listan bära dem, och kostnaden för det är
+att den dagliga listan fylls av möten man inte kan göra någonting åt
+förrän de fått en tid. En lista där hälften av raderna inte går att
+bocka av slutar man läsa.
+
+**Längden sitter på lappen**, inte på släppet. En lunch är nittio
+minuter och ett kaffe trettio, och det vet man när man skriver lappen —
+inte när man drar den. Knappen stegar mellan de vanliga längderna i
+stället för att vara ett fält: man sätter längden i förbifarten, och ett
+fält hade krävt att man siktade, markerade och skrev.
+
+**Släppet är hela beslutet.** Ingen panel öppnas — händelsen skapas
+direkt, med lappens titel, anteckning och kalender. Ett fönster som
+kräver ett tryck till hade gjort draget till en omväg i stället för en
+genväg, och ångrar man sig tar `⌘Z` tillbaka både händelsen och lappen
+på en gång. Det är en enda ändring i historiken, av samma skäl som en
+kalenderborttagning flyttar sina händelser i samma andetag: ett halvt
+ångrat släpp hade lämnat antingen en händelse utan lapp eller en lapp
+utan händelse.
+
+Kalendern hoppar dit lappen landade. Släpper man i en vy som visar en
+annan vecka vill man se resultatet, inte lita på att det gick vägen.
+
+**Draget korsar en gräns React inte har någon väg över.** När lappen
+fångar pekaren med `setPointerCapture` går varje `pointermove` och
+`pointerup` till lappen — rutnätets egna hanterare hör aldrig av sig, hur
+mycket man än drar över dem. Lappen får därför själv ta reda på vad den
+svävar över, och läser det ur DOM: dagkolumnerna bär `data-dagnyckel` och
+`data-timhojd`, och `elementFromPoint` säger vilken man är över. Samma
+grepp som månadsvyn redan använder när ett block dras mellan två rutor.
+
+Att i stället låta bli att fånga pekaren och lyssna på fönstret hade
+fungerat på skrivbordet och gått sönder på telefonen, där ett finger som
+lämnar sitt element utan fångst slutar ge händelser alls. Attributen är
+alltså ett gränssnitt, och de provas som ett — försvinner de går släppet
+sönder *tyst*, och man kan dra hur länge man vill utan att något landar.
+
+Förhandsvisningen ritas av **rutnätet** och inte av panelen, eftersom den
+skall ligga på rätt dag vid rätt klockslag. Rutnätet är sidopanelens
+syskon och inte dess barn, så läget skickas upp till den gemensamma
+föräldern. Spöket som följer pekaren har `pointer-events: none` — det är
+inte kosmetik utan förutsättningen för hela gesten, eftersom
+`elementFromPoint` annars hade träffat spöket i stället för rutnätet
+under det.
+
+Släpper man i **månadsvyn** finns inget klockslag att läsa av. Lappen
+landar då nio på morgonen, samma svar som en dubbelklick i en tom
+månadsruta redan ger. Ett finger måste hålla in lappen ett ögonblick
+innan draget börjar — annars hade varje svep i sidopanelen lyft en lapp i
+stället för att rulla listan.
+
+**Parkeringen synkar som allt annat**, men tabellen tillkom efter att
+appen redan var i drift. Kör `supabase/schema.sql` (eller bara dess
+`lappar`-avsnitt) i Supabase SQL-editorn, så följer lapparna med mellan
+enheterna. Innan dess fungerar de lokalt: synkmotorn känner igen "den
+där tabellen finns inte" och tiger just om det, i stället för att låta
+en oanvänd funktion stoppa synkningen av händelser, uppgifter och
+anteckningar.
+
 ## Fångst
 
 Tryck `⌘K` (eller `⌕` på telefonen), skriv en rad, tryck `⏎`.
@@ -930,7 +1001,7 @@ Demomaterialet som tidigare såddes automatiskt ligger kvar i
 
 ## Prov
 
-`npm test` kör fjorton sviter:
+`npm test` kör femton sviter:
 
 - **Upprepningsmotorn** — 22 prov över skottår, korta månader, sommartid,
   räknade serier sedda genom sena fönster, undantag och flyttade förekomster.
@@ -955,6 +1026,12 @@ Demomaterialet som tidigare såddes automatiskt ligger kvar i
 - **Privatekonomin** — 52 prov över all matematik. Tyngdpunkten ligger på
   skillnaden mellan noll och okänt, på att sparmålet räknas på utfall och
   inte på avsikt, och på att prognosen håller tyst när den inte vet.
+- **Parkeringen** — 19 prov. Tyngdpunkten ligger på översättningen från
+  lapp till händelse — att titel, kalender och längd verkligen följer
+  med — och på räkningen från pekarens y-läge till ett klockslag, som är
+  det enda på vägen som kan bli tyst fel. En timhöjd på noll ger noll och
+  inte `NaN`: ett `NaN` i ett stilattribut ritar ingenting alls, utan att
+  något säger ifrån.
 - **Vinsidan** — 42 prov. Tyngdpunkten ligger på att ofyllt aldrig blir
   noll (ett vin i källaren utan antal är en flaska, inte ingen), att ett
   vin som saknar ett tal hamnar sist och inte först när listan sorteras,
@@ -980,7 +1057,7 @@ Demomaterialet som tidigare såddes automatiskt ligger kvar i
 - **Uppgifterna** — 16 prov, mest om sorteringen. En att göra-lista är i
   praktiken sin ordning: står fel sak överst gör man fel sak, och det
   märks inte förrän dagen är slut.
-- **Vyerna** — 31 prov som renderar varje vy, varje panel och varje sida
+- **Vyerna** — 35 prov som renderar varje vy, varje panel och varje sida
   under Annat till HTML och kontrollerar att de innehåller det de skall,
   inklusive att kolumnpackningen faktiskt delar bredden mellan krockande
   block. Sidornas block ritas dessutom i sitt REDIGERINGSläge, som är

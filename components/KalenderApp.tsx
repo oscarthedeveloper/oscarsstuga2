@@ -11,7 +11,8 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Forekomst, Handelse, Vy } from "@/lib/typer";
+import type { Forekomst, Handelse, Lapp, Vy } from "@/lib/typer";
+import { slapptid, type Slappmal, type Slappning } from "@/lib/lappar";
 import { VYER } from "@/lib/typer";
 import { useButik } from "./Butik";
 import { expanderaAlla } from "@/lib/upprepning";
@@ -415,11 +416,47 @@ export default function KalenderApp() {
    * räckvidden, så frågan ställs i en liten ruta i stället för att appen
    * gissar. Enstaka händelser flyttas direkt.
    */
+  /*
+   * Lappen som svävar över rutnätet.
+   *
+   * Bor HÄR och inte i sidopanelen, trots att det är sidopanelen som
+   * äger gesten. Skälet är att det är RUTNÄTET som ritar var lappen
+   * skulle landa, och rutnätet är sidopanelens syskon — inte dess barn.
+   * Den enda gemensamma föräldern är den här komponenten.
+   */
+  const [slapper, setSlapper] = useState<Slappning | null>(null);
+
   const [flyttfraga, setFlyttfraga] = useState<{
     f: Forekomst;
     start: Date;
     slut: Date;
   } | null>(null);
+
+  /**
+   * Lappen landar.
+   *
+   * Händelsen skapas och lappen tas bort i EN ändring, så att ⌘Z tar
+   * tillbaka båda på en gång. Ingen panel öppnas: gesten är hela
+   * beslutet, och ett fönster som kräver ett tryck till hade gjort
+   * draget till en omväg i stället för en genväg.
+   *
+   * Kalendern hoppar dit lappen landade. Släpper man i en vy som visar
+   * en annan vecka vill man se resultatet, inte lita på att det gick
+   * vägen.
+   */
+  const slappLappen = useCallback(
+    (lapp: Lapp, mal: Slappmal) => {
+      const start = slapptid(mal.dagnyckel, mal.minut);
+      // En dagnyckel som inte går att tolka betyder att pekaren låg över
+      // något som bar attributet men inte ett datum. Då händer ingenting
+      // alls — hellre det än en händelse på ett gissat datum.
+      if (!start) return;
+      butik.slappLapp(lapp, start);
+      setSlapper(null);
+      setPeka(startAvDag(start));
+    },
+    [butik]
+  );
 
   const flytta = useCallback(
     (f: Forekomst, nyStart: Date, nySlut: Date) => {
@@ -939,6 +976,8 @@ export default function KalenderApp() {
             onOppna={oppnaHandelse}
             onNy={() => nyHandelse()}
             onHanteraKalendrar={() => setHanterarKalendrar(true)}
+            onSlapper={setSlapper}
+            onSlapp={slappLappen}
           />
           )}
 
@@ -971,6 +1010,13 @@ export default function KalenderApp() {
                     setHanterarKalendrar(true);
                   }}
                   onStang={() => setLada(false)}
+              onSlapper={setSlapper}
+              onSlapp={(lapp, mal) => {
+                // Lådan täcker rutnätet på en smal skärm; den måste
+                // stängas för att man skall se vad släppet gjorde.
+                setLada(false);
+                slappLappen(lapp, mal);
+              }}
                 />
               </div>
             </>
@@ -1045,6 +1091,7 @@ export default function KalenderApp() {
                 onFlytta={flytta}
                 onSkapa={(s, e, heldag) => nyHandelse(s, e, heldag)}
                 onGaTillDag={oppnaDag}
+                slapper={slapper}
               />
             ) : (
               <TidsRutnat
@@ -1058,6 +1105,7 @@ export default function KalenderApp() {
                 onOppna={oppnaHandelse}
                 onFlytta={flytta}
                 onSkapa={(s, e, heldag) => nyHandelse(s, e, heldag)}
+                slapper={slapper}
               />
             )}
             </>

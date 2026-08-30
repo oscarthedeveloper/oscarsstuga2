@@ -11,6 +11,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Forekomst } from "@/lib/typer";
+import type { Slappning } from "@/lib/lappar";
 import { laggUtBand } from "@/lib/layout";
 import {
   addDagar,
@@ -39,6 +40,14 @@ export interface ManadsProps {
   onFlytta(f: Forekomst, nyStart: Date, nySlut: Date): void;
   onSkapa(start: Date, slut: Date, heldag: boolean): void;
   onGaTillDag(d: Date): void;
+  /**
+   * En lapp från parkeringen som svävar över månaden.
+   *
+   * Månadsrutan bär redan `data-dagnyckel`, så lappen hittar hit av sig
+   * själv. Det enda som saknas är att rutan lyser upp — utan det ser
+   * släppet ut som en gissning.
+   */
+  slapper?: Slappning | null;
 }
 
 export default function ManadsVy({
@@ -50,6 +59,7 @@ export default function ManadsVy({
   onFlytta,
   onSkapa,
   onGaTillDag,
+  slapper = null,
 }: ManadsProps) {
   const dagar = useMemo(() => manadsrutnat(peka), [peka]);
   const rutorRef = useRef<HTMLDivElement | null>(null);
@@ -172,6 +182,7 @@ export default function ManadsVy({
               forekomster={forekomster}
               vald={vald}
               drag={drag}
+              slapper={slapper}
               onValj={onValj}
               onOppna={onOppna}
               onSkapa={onSkapa}
@@ -194,6 +205,7 @@ function VeckoRad({
   forekomster,
   vald,
   drag,
+  slapper,
   onValj,
   onOppna,
   onSkapa,
@@ -208,6 +220,7 @@ function VeckoRad({
   forekomster: Forekomst[];
   vald: string | null;
   drag: { f: Forekomst; fran: string; over: string | null } | null;
+  slapper: Slappning | null;
   onValj(f: Forekomst | null): void;
   onOppna(f: Forekomst): void;
   onSkapa(start: Date, slut: Date, heldag: boolean): void;
@@ -283,7 +296,16 @@ function VeckoRad({
               data-utanfor={utanfor ? "1" : "0"}
               data-helg={arHelg(d) ? "1" : "0"}
               data-idag={idag ? "1" : "0"}
-              data-slappmal={drag && drag.over === dn && drag.over !== drag.fran ? "1" : "0"}
+              /* Två slags släpp lyser upp samma ruta: ett block som
+                 flyttas inom månaden, och en lapp som dras hit från
+                 parkeringen. Att ge dem varsin markering hade betytt två
+                 sätt att säga samma sak. */
+              data-slappmal={
+                (drag && drag.over === dn && drag.over !== drag.fran) ||
+                slapper?.mal?.dagnyckel === dn
+                  ? "1"
+                  : "0"
+              }
               className="manadsruta flex-1"
               onDoubleClick={() => {
                 const start = new Date(

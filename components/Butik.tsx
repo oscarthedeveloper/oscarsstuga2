@@ -27,6 +27,7 @@ import type {
   Sida,
   Handelse,
   Kalender,
+  Lapp,
   Rackvidd,
   Upprepning,
   Uppgift,
@@ -43,6 +44,7 @@ import {
   levande,
   normalisera,
   normaliseraKalender,
+  normaliseraLapp,
   normaliseraUppgift,
   nu,
   nyId,
@@ -58,6 +60,7 @@ import {
 } from "@/lib/upprepning";
 import { addDagar, dygnMellan, nyckel, stampel, tolka } from "@/lib/tid";
 import { tolkaFangst, type Sort } from "@/lib/tolka";
+import { lappUtkast } from "@/lib/lappar";
 import type { Session } from "@supabase/supabase-js";
 import { MOLNET_FINNS, hamtaKlient } from "@/lib/supabase";
 import {
@@ -103,6 +106,19 @@ interface ButikVarde {
   sparaAnteckning(a: Anteckning): void;
   taBortAnteckning(id: string): void;
   vaxlaNalad(id: string): void;
+  /* --- parkeringen --- */
+  lappar: Lapp[];
+  skapaLapp(utkast: Partial<Lapp>): Lapp;
+  sparaLapp(l: Lapp): void;
+  taBortLapp(id: string): void;
+  /**
+   * Lappen landar i kalendern: en händelse skapas och lappen tas bort.
+   *
+   * ETT anrop och inte två, eftersom det är EN ändring. Två anrop hade
+   * blivit två steg i ångra-historiken, och ett ⌘Z hade då tagit
+   * tillbaka lappen utan att ta bort händelsen — eller tvärtom.
+   */
+  slappLapp(lapp: Lapp, start: Date): Handelse;
   /* --- sidor under Annat --- */
   sidor: Sida[];
   /** Sidan med det id:t, eller null om den aldrig fyllts i. */
@@ -160,6 +176,7 @@ export default function ButikProvider({
     uppgifter: [],
     anteckningar: [],
     sidor: [],
+    lappar: [],
   });
   const [laddad, setLaddad] = useState(false);
 
@@ -173,6 +190,7 @@ export default function ButikProvider({
     [data.anteckningar]
   );
   const sidor = useMemo(() => levande(data.sidor), [data.sidor]);
+  const lappar = useMemo(() => levande(data.lappar), [data.lappar]);
 
   const historik = useRef<Ogonblick[]>([]);
   const framtid = useRef<Ogonblick[]>([]);
@@ -190,6 +208,7 @@ export default function ButikProvider({
         uppgifter: sparat.uppgifter,
         anteckningar: sparat.anteckningar,
         sidor: sparat.sidor,
+        lappar: sparat.lappar,
       });
     }
     // Utan sparat läge börjar kalendern tom. Ingen exempeldata sås:
@@ -375,6 +394,89 @@ export default function ButikProvider({
       );
     },
     [andraAnteckningar]
+  );
+
+  /* ---------------------------------------------------------------
+     Parkeringen
+
+     Fjärde kopian av samma mekanik som uppgifterna och anteckningarna.
+     Se kommentaren vid `andraAnteckningar` för varför den inte är
+     utbruten till en generisk hjälpare.
+     --------------------------------------------------------------- */
+  const andraLappar = useCallback(
+    (f: (lista: Lapp[]) => Lapp[]) => {
+      andra((o) => {
+        const nya = f(o.lappar);
+        const tidpunkt = nu();
+        const fore = new Map(o.lappar.map((l) => [l.id, l]));
+        const kvar = nya.map((l) =>
+          fore.get(l.id) === l ? l : rord(l, tidpunkt)
+        );
+        const kvarIder = new Set(nya.map((l) => l.id));
+        const gravar = o.lappar
+          .filter((l) => !kvarIder.has(l.id) && !l.raderad)
+          .map((l) => gravsatt(l, tidpunkt));
+        return { ...o, lappar: [...kvar, ...gravar] };
+      });
+    },
+    [andra]
+  );
+
+  const skapaLapp = useCallback(
+    (utkast: Partial<Lapp>) => {
+      const l = normaliseraLapp({ ...utkast, id: utkast.id ?? nyId() });
+      andraLappar((lista) => [...lista, l]);
+      return l;
+    },
+    [andraLappar]
+  );
+
+  const sparaLapp = useCallback(
+    (l: Lapp) => {
+      andraLappar((lista) =>
+        lista.some((x) => x.id === l.id)
+          ? lista.map((x) => (x.id === l.id ? normaliseraLapp(l) : x))
+          : [...lista, normaliseraLapp(l)]
+      );
+    },
+    [andraLappar]
+  );
+
+  const taBortLapp = useCallback(
+    (id: string) => {
+      andraLappar((lista) => lista.filter((l) => l.id !== id));
+    },
+    [andraLappar]
+  );
+
+  /**
+   * Lappen landar i kalendern.
+   *
+   * Händelsen skapas och lappen gravsätts i ETT anrop till `andra`, och
+   * därmed i ett enda steg i ångra-historiken. Två anrop hade gett två
+   * steg, och ett ⌘Z hade tagit tillbaka lappen utan att ta bort
+   * händelsen — eller tvärtom. Det är samma skäl som gör att en
+   * kalenderborttagning flyttar sina händelser i samma andetag.
+   *
+   * Stämplingen görs för hand här, eftersom `andraHandelser` och
+   * `andraLappar` var för sig skulle ha delat upp ändringen igen.
+   */
+  const slappLapp = useCallback(
+    (lapp: Lapp, start: Date) => {
+      const h = normalisera({ ...lappUtkast(lapp, start), id: nyId() });
+      andra((o) => {
+        const tidpunkt = nu();
+        return {
+          ...o,
+          handelser: [...o.handelser, rord(h, tidpunkt)],
+          lappar: o.lappar.map((l) =>
+            l.id === lapp.id && !l.raderad ? gravsatt(l, tidpunkt) : l
+          ),
+        };
+      });
+      return h;
+    },
+    [andra]
   );
 
   /**
@@ -764,6 +866,7 @@ export default function ButikProvider({
           resultat.data.anteckningar
         );
         const sidor = sammanfoga(nuvarande.sidor, resultat.data.sidor);
+        const lappar = sammanfoga(nuvarande.lappar, resultat.data.lappar);
         // Sammanfogningen lämnar tillbaka samma referens när ingenting
         // skilde sig. Då skall tillståndet inte röras alls: annars ritas
         // hela kalendern om var trettionde sekund utan anledning.
@@ -772,11 +875,12 @@ export default function ButikProvider({
           kalendrar === nuvarande.kalendrar &&
           uppgifter === nuvarande.uppgifter &&
           anteckningar === nuvarande.anteckningar &&
-          sidor === nuvarande.sidor
+          sidor === nuvarande.sidor &&
+          lappar === nuvarande.lappar
         ) {
           return nuvarande;
         }
-        return { handelser, kalendrar, uppgifter, anteckningar, sidor };
+        return { handelser, kalendrar, uppgifter, anteckningar, sidor, lappar };
       });
       setSynkLage({
         tillstand: "vilande",
@@ -1021,6 +1125,11 @@ export default function ButikProvider({
       sparaAnteckning,
       taBortAnteckning,
       vaxlaNalad,
+      lappar,
+      skapaLapp,
+      sparaLapp,
+      taBortLapp,
+      slappLapp,
       sidor,
       sidaMed,
       sparaSida,
@@ -1068,6 +1177,11 @@ export default function ButikProvider({
       sparaAnteckning,
       taBortAnteckning,
       vaxlaNalad,
+      lappar,
+      skapaLapp,
+      sparaLapp,
+      taBortLapp,
+      slappLapp,
       sidor,
       sidaMed,
       sparaSida,
