@@ -17,8 +17,6 @@
 import type { ComponentType } from "react";
 import type { SidData, Sida } from "@/lib/typer";
 import Hogskoleprov from "./Hogskoleprov";
-import Sprak from "./Sprak";
-import Fornsvenska from "./Fornsvenska";
 import Privatekonomi from "./Privatekonomi";
 import Viner from "./Viner";
 
@@ -45,20 +43,6 @@ export const SIDOR: SidDefinition[] = [
     kort: "HP",
     beskrivning: "Resultat, delpoäng, antagningspoäng och plugglogg",
     Komponent: Hogskoleprov,
-  },
-  {
-    id: "sprak",
-    titel: "Språk",
-    kort: "SP",
-    beskrivning: "Hyllor, mappar och blad för italienska, tyska, svenska och engelska",
-    Komponent: Sprak,
-  },
-  {
-    id: "fornsvenska",
-    titel: "Fornsvenska",
-    kort: "FS",
-    beskrivning: "Litteraturregister, att göra för hemsidan och idéer",
-    Komponent: Fornsvenska,
   },
   {
     id: "viner",

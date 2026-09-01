@@ -12,6 +12,7 @@
 
 import type {
   Anteckning,
+  Gjort,
   Handelse,
   Kalender,
   Lapp,
@@ -31,6 +32,7 @@ export interface Ogonblick {
   anteckningar: Anteckning[];
   sidor: Sida[];
   lappar: Lapp[];
+  gjort: Gjort[];
 }
 
 export interface Lager {
@@ -109,6 +111,7 @@ export class LokaltLager implements Lager {
         anteckningar: (data.anteckningar ?? []).map(normaliseraAnteckning),
         sidor: (data.sidor ?? []).map(normaliseraSida),
         lappar: (data.lappar ?? []).map(normaliseraLapp),
+        gjort: (data.gjort ?? []).map(normaliseraGjort),
       });
     } catch {
       return null;
@@ -155,6 +158,7 @@ export function stadaGravstenar(o: Ogonblick, idag = new Date()): Ogonblick {
     anteckningar: o.anteckningar.filter(lever),
     sidor: o.sidor.filter(lever),
     lappar: o.lappar.filter(lever),
+    gjort: o.gjort.filter(lever),
   };
 }
 
@@ -244,6 +248,22 @@ export function normaliseraLapp(l: Partial<Lapp>): Lapp {
     andrad: l.andrad ?? l.skapad ?? nu(),
     raderad: l.raderad ?? null,
     synkad: l.synkad ?? false,
+  };
+}
+
+export function normaliseraGjort(g: Partial<Gjort>): Gjort {
+  return {
+    id: g.id ?? nyId(),
+    text: g.text ?? "",
+    // Ett datum som inte är en dagnyckel går inte att rita någonstans.
+    // Tomt är ärligare än ett påhittat "idag": raden syns då inte i
+    // remsan, men den ligger kvar och går att rätta.
+    datum: /^\d{4}-\d{2}-\d{2}$/.test(g.datum ?? "") ? (g.datum as string) : "",
+    kalenderId: g.kalenderId ?? "arbete",
+    skapad: g.skapad ?? nu(),
+    andrad: g.andrad ?? g.skapad ?? nu(),
+    raderad: g.raderad ?? null,
+    synkad: g.synkad ?? false,
   };
 }
 
@@ -383,8 +403,8 @@ export function taBortKalender(
       ? flyttaTill
       : null;
 
-  // Uppgifter, anteckningar och lappar delar kalender med händelserna
-  // och måste följa med samma väg. Glöms de bort blir de osynliga men
+  // Uppgifter, anteckningar, lappar och gjort delar kalender med
+  // händelserna och måste följa med samma väg. Glöms de bort blir de osynliga men
   // ligger kvar i lagret.
   const flyttaEller = <T extends Synkbar & { kalenderId: string }>(x: T): T => {
     if (x.kalenderId !== id || x.raderad) return x;
@@ -401,6 +421,7 @@ export function taBortKalender(
     uppgifter: o.uppgifter.map(flyttaEller),
     anteckningar: o.anteckningar.map(flyttaEller),
     lappar: o.lappar.map(flyttaEller),
+    gjort: o.gjort.map(flyttaEller),
     // Sidorna hör inte till någon kalender och berörs inte.
     sidor: o.sidor,
   };

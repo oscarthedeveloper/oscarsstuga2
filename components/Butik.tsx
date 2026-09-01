@@ -25,6 +25,7 @@ import type {
   Forekomst,
   SidData,
   Sida,
+  Gjort,
   Handelse,
   Kalender,
   Lapp,
@@ -44,6 +45,7 @@ import {
   levande,
   normalisera,
   normaliseraKalender,
+  normaliseraGjort,
   normaliseraLapp,
   normaliseraUppgift,
   nu,
@@ -119,6 +121,11 @@ interface ButikVarde {
    * tillbaka lappen utan att ta bort händelsen — eller tvärtom.
    */
   slappLapp(lapp: Lapp, start: Date): Handelse;
+  /* --- gjort --- */
+  gjort: Gjort[];
+  skapaGjort(utkast: Partial<Gjort>): Gjort;
+  sparaGjort(g: Gjort): void;
+  taBortGjort(id: string): void;
   /* --- sidor under Annat --- */
   sidor: Sida[];
   /** Sidan med det id:t, eller null om den aldrig fyllts i. */
@@ -177,6 +184,7 @@ export default function ButikProvider({
     anteckningar: [],
     sidor: [],
     lappar: [],
+    gjort: [],
   });
   const [laddad, setLaddad] = useState(false);
 
@@ -191,6 +199,7 @@ export default function ButikProvider({
   );
   const sidor = useMemo(() => levande(data.sidor), [data.sidor]);
   const lappar = useMemo(() => levande(data.lappar), [data.lappar]);
+  const gjort = useMemo(() => levande(data.gjort), [data.gjort]);
 
   const historik = useRef<Ogonblick[]>([]);
   const framtid = useRef<Ogonblick[]>([]);
@@ -209,6 +218,7 @@ export default function ButikProvider({
         anteckningar: sparat.anteckningar,
         sidor: sparat.sidor,
         lappar: sparat.lappar,
+        gjort: sparat.gjort,
       });
     }
     // Utan sparat läge börjar kalendern tom. Ingen exempeldata sås:
@@ -477,6 +487,58 @@ export default function ButikProvider({
       return h;
     },
     [andra]
+  );
+
+  /* ---------------------------------------------------------------
+     Gjort
+
+     Femte kopian av samma mekanik. Se kommentaren vid
+     `andraAnteckningar` för varför den inte är utbruten.
+     --------------------------------------------------------------- */
+  const andraGjort = useCallback(
+    (f: (lista: Gjort[]) => Gjort[]) => {
+      andra((o) => {
+        const nya = f(o.gjort);
+        const tidpunkt = nu();
+        const fore = new Map(o.gjort.map((g) => [g.id, g]));
+        const kvar = nya.map((g) =>
+          fore.get(g.id) === g ? g : rord(g, tidpunkt)
+        );
+        const kvarIder = new Set(nya.map((g) => g.id));
+        const gravar = o.gjort
+          .filter((g) => !kvarIder.has(g.id) && !g.raderad)
+          .map((g) => gravsatt(g, tidpunkt));
+        return { ...o, gjort: [...kvar, ...gravar] };
+      });
+    },
+    [andra]
+  );
+
+  const skapaGjort = useCallback(
+    (utkast: Partial<Gjort>) => {
+      const g = normaliseraGjort({ ...utkast, id: utkast.id ?? nyId() });
+      andraGjort((lista) => [...lista, g]);
+      return g;
+    },
+    [andraGjort]
+  );
+
+  const sparaGjort = useCallback(
+    (g: Gjort) => {
+      andraGjort((lista) =>
+        lista.some((x) => x.id === g.id)
+          ? lista.map((x) => (x.id === g.id ? normaliseraGjort(g) : x))
+          : [...lista, normaliseraGjort(g)]
+      );
+    },
+    [andraGjort]
+  );
+
+  const taBortGjort = useCallback(
+    (id: string) => {
+      andraGjort((lista) => lista.filter((g) => g.id !== id));
+    },
+    [andraGjort]
   );
 
   /**
@@ -867,6 +929,7 @@ export default function ButikProvider({
         );
         const sidor = sammanfoga(nuvarande.sidor, resultat.data.sidor);
         const lappar = sammanfoga(nuvarande.lappar, resultat.data.lappar);
+        const gjort = sammanfoga(nuvarande.gjort, resultat.data.gjort);
         // Sammanfogningen lämnar tillbaka samma referens när ingenting
         // skilde sig. Då skall tillståndet inte röras alls: annars ritas
         // hela kalendern om var trettionde sekund utan anledning.
@@ -876,11 +939,20 @@ export default function ButikProvider({
           uppgifter === nuvarande.uppgifter &&
           anteckningar === nuvarande.anteckningar &&
           sidor === nuvarande.sidor &&
-          lappar === nuvarande.lappar
+          lappar === nuvarande.lappar &&
+          gjort === nuvarande.gjort
         ) {
           return nuvarande;
         }
-        return { handelser, kalendrar, uppgifter, anteckningar, sidor, lappar };
+        return {
+          handelser,
+          kalendrar,
+          uppgifter,
+          anteckningar,
+          sidor,
+          lappar,
+          gjort,
+        };
       });
       setSynkLage({
         tillstand: "vilande",
@@ -1130,6 +1202,10 @@ export default function ButikProvider({
       sparaLapp,
       taBortLapp,
       slappLapp,
+      gjort,
+      skapaGjort,
+      sparaGjort,
+      taBortGjort,
       sidor,
       sidaMed,
       sparaSida,
@@ -1182,6 +1258,10 @@ export default function ButikProvider({
       sparaLapp,
       taBortLapp,
       slappLapp,
+      gjort,
+      skapaGjort,
+      sparaGjort,
+      taBortGjort,
       sidor,
       sidaMed,
       sparaSida,

@@ -104,7 +104,7 @@ export default function Sidopanel({
     >
       {lada && (
         <div className="shrink-0 h-[34px] px-2.5 flex items-center justify-between border-b border-[rgb(253_251_239/0.25)]">
-          <span className="micro">Kalendariet</span>
+          <span className="micro">Oscars databas</span>
           <button
             type="button"
             className="micro hover:text-accent transition-colors"
@@ -124,8 +124,22 @@ export default function Sidopanel({
         </button>
       </div>
 
+      {/*
+        ALLT UNDER KNAPPEN RULLAR, som ett enda område.
+        Tidigare var varje avsnitt `shrink-0` och bara dagens lista
+        rullade. Det höll så länge det som stod ovanför hade en känd
+        höjd — men parkeringen växer med antalet lappar, och med några
+        stycken sköts dagens lista ut under panelens nederkant utan att
+        något gick att rulla åt. Två rullningsområden i en 218 pixlar
+        bred spalt är dessutom en gissningslek: man vet aldrig vilket
+        av dem hjulet råkar hamna i.
+
+        Knappen står kvar utanför. Den är panelens enda handling och
+        skall inte behöva letas fram genom att rulla tillbaka upp.
+      */}
+      <div className="flex-1 min-h-0 overflow-y-auto tunnskroll">
       {/* Minimånad */}
-      <div className="px-2.5 pb-2.5 shrink-0">
+      <div className="px-2.5 pb-2.5">
         <div className="flex items-center justify-between mb-1.5">
           <span className="micro">
             {MANADER[peka.getMonth()].slice(0, 3)} {peka.getFullYear()}
@@ -174,7 +188,7 @@ export default function Sidopanel({
       </div>
 
       {/* Kalenderfilter */}
-      <div className="px-2.5 pb-2 shrink-0 border-t border-[rgb(253_251_239/0.2)] pt-2.5">
+      <div className="px-2.5 pb-2 border-t border-[rgb(253_251_239/0.2)] pt-2.5">
         <div className="flex items-center justify-between mb-1 gap-2">
           <span className="pico opacity-60">Kalendrar</span>
           <span className="flex items-center gap-2">
@@ -257,7 +271,7 @@ export default function Sidopanel({
       />
 
       {/* Dagens lista */}
-      <div className="flex-1 min-h-0 overflow-y-auto tunnskroll border-t border-[rgb(253_251_239/0.2)] px-2.5 py-2">
+      <div className="border-t border-[rgb(253_251_239/0.2)] px-2.5 py-2">
         <div className="flex items-baseline justify-between mb-1.5">
           <span className="pico opacity-60">
             {arSammaDag(peka, nu) ? "Idag" : "Vald dag"}
@@ -293,6 +307,7 @@ export default function Sidopanel({
             </span>
           </button>
         ))}
+      </div>
       </div>
     </aside>
   );

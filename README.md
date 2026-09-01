@@ -1,4 +1,4 @@
-# Kalendariet
+# Oscars databas
 
 En kalender, en att göra-lista, ett anteckningsblock och en avdelning för
 allt annat — i samma app —
@@ -119,6 +119,61 @@ kalendern prioriteringen i stället för du.
 
 Ett förfallodatum är frivilligt. Passeras det markeras raden med accent
 och räknas i fotens *försenade*.
+
+## Gjort
+
+Under heldagsfältet ligger en andra remsa: **Gjort**. Där för man in
+sådant som redan hänt — "Sprungit", "1,45 h HP-plugg", "Styrketräning",
+"Läst 40 sidor av X". Klicka i dagens ruta, skriv, tryck `⏎`. Fältet
+töms och står kvar, så nästa rad kan skrivas direkt: man för sällan in
+en enda sak, man för in dagens.
+
+**Den femte sorten, och gränsen går vid tempus.** En händelse äger en
+plats i tiden och är en avsikt tills den passerat. En uppgift äger en
+avsikt och bockas av när den är gjord. En anteckning äger det man vet.
+En lapp blir en händelse. Ett *gjort* går inte att bocka av — det är
+redan gjort — och det har ingen varaktighet att rita ut i rutnätet, bara
+en dag och en rad text.
+
+Att pressa in det bland uppgifterna hade betytt en att göra-lista full
+av sådant man redan gjort, med en bock satt i samma stund raden skrevs.
+Att göra det till en heldagshändelse hade fyllt heldagsremsan med sådant
+som inte upptar en dag.
+
+**Texten är fri, med flit.** "1,45 h HP-plugg" är hur man själv skriver
+det. Ett fält som krävde ett tal i en ruta och en etikett i en annan
+hade gjort en anteckning på fem sekunder till ett formulär, och appen
+räknar ändå ingenting på dem — den minns. Det enda som städas är
+ytterkanterna och dubbla mellanrum; innehållet rörs inte, för ett fält
+som rättar sitt eget innehåll är ett fält man slutar lita på.
+
+**Kalendern väljs inte vid inmatningen.** Man skriver "Sprungit" och
+vill inte peka i en rullgardin först. Raden får den kalender den senast
+fick, och går att flytta efteråt genom att klicka på den. Färgen ligger
+som en kant till vänster i stället för som en fylld yta — en fylld yta
+hade gjort remsan till ett fält av färg, och det som skall läsas är
+orden.
+
+Cellen **är** träffytan. Den är stor och mest tom, och att kräva att man
+träffar en liten plusknapp hade gjort den vanligaste handlingen till den
+svåraste. Plusknappen finns ändå, som genväg, och syns när pekaren är i
+cellen. En tömd rad är en raderad rad: att lämna kvar en tom ruta i
+remsan vore att spara ett misstag.
+
+Remsan **rullar inte med** rutnätet. Det man gjort skall stå kvar i
+synfältet medan man bläddrar i timmarna. Den ritas i dags-, tredagars-
+och veckovyn — månadsrutan är för liten för en rad text bredvid
+händelserna.
+
+Ett datum som inte är en dagnyckel blir **tomt, inte "idag"**. Raden
+syns då inte i remsan men ligger kvar i lagret och går att rätta; ett
+gissat datum hade lagt något man gjorde i mars på dagens rad.
+
+**Gjort synkar som allt annat**, men tabellen tillkom efter att appen
+redan var i drift. Kör `supabase/schema.sql` (eller bara dess
+`gjort`-avsnitt) i Supabase SQL-editorn. Innan dess fungerar remsan
+lokalt: synkmotorn känner igen "den där tabellen finns inte" och tiger
+just om det, precis som för parkeringen.
 
 ## Parkeringen
 
@@ -359,132 +414,6 @@ man hunnit skriva 7:an. `Talfalt` äger därför sin råa text medan man
 skriver och skickar bara ut det tolkade värdet; texten skrivs om utifrån
 först när det inkommande värdet säger något annat än det man skrivit.
 
-### Språk
-
-Ett bibliotek i fyra nivåer: **hylla → mapp → blad → block.**
-
-**Hyllan är en rad.** Ett språk per rad, mapparna liggande på den, och
-alla språk synliga samtidigt — man skall inte behöva välja ett språk för
-att få se vad som står i det. Raden radbryter aldrig: gör den det är det
-inte längre en hylla utan ett rutnät, och då försvinner just det som gör
-att man ser ett språk i taget. Ligger det fler mappar än som ryms rullar
-raden i sidled, och att en mapp är avklippt i kanten är signalen om att
-det finns mer. Vid fler än fyra mappar finns dessutom *visa alla*, som
-fäller ut hyllan till allt på en gång.
-
-En hylla bär en ton ur kalenderpaletten. En mapp är en "bok" — väljer du
-en omslagsbild visas den, annars ritas mappen som en mapp i hyllans ton.
-Ett blad är ett "papper", och innehållet är block.
-
-Ramen sitter på **omslaget**, inte runt hela mappen. En kortram gjorde
-varje mapp till en ruta bland rutor; utan den är det omslaget som är
-föremålet och texten bara en etikett under det. Titeln har alltid två
-rader avsatta, även när den bara behöver en — annars hamnar underraderna
-på olika höjd och hyllan blir en ojämn hög i stället för en hylla.
-
-Bladet är satt som ett **dokument**, inte som ett formulär. En regel bär
-hela uppställningen: **antikva för det man läser, monospace för
-apparaten.** Titel, avsnittsrubrik, citat, brödtext och kommentar sätts i
-Newsreader; brödsmula, underrubrik, etiketter, källor, tabelldata och
-märken i Martian Mono. Ingenting blandas, och det är den enda anledningen
-att sidan håller ihop trots att den bär tio sorters innehåll. Bakgrunden
-har ett svagt rutnät — samma teknik som tidsrutnätet, raster i stället för
-element.
-
-Bladet bär rubrik, **underrubrik** i kapitäler och ett **utkastmärke** som
-växlas genom att tryckas. Ett tillstånd man byter ofta skall inte ligga
-bakom en inställningspanel.
-
-Sidlisten är svart och kompakt, med **hela hyllans träd** — mappar och
-deras blad om vartannat, inte bara den öppnade mappens innehåll. Man skall
-kunna hoppa från *Dativ* till *Starka verb* utan att backa ut till hyllan.
-Vokabulären är filsystemets: `▸ Namn/` för en mapp, `· Namn` för ett blad.
-Snedstrecket och triangeln behöver inte läras in, och de skiljer de två
-sorterna åt utan färg — vilket är nödvändigt, eftersom orange redan är
-upptaget av "det här är du".
-
-**Tio blocktyper:** text, rubrik, belägg, faktarad, tabell, böjning,
-ordpar, paralleltext, flikar och anmärkning. I text fungerar `**fet**`, `*kursiv*` och
-`` `kod` `` — och ingenting mer. Varje tecken som får en betydelse är ett
-tecken man inte längre kan skriva utan att tänka, och den som skriver om
-grammatik skriver ofta om just tecken. En ensam stjärna öppnar därför
-aldrig en kursivering: `*ho andato är fel` är en mening, inte en
-markering som sträcker sig genom stycket.
-
-Fyra av blocken kommer ur dokumentationsformspråket:
-
-- **Belägg** är ett citat med källa och kommentar. Layouten följer
-  innehållet i stället för att styras av ett fält: saknas kommentaren går
-  citatet i full bredd och stor grad — ett anslag — och finns den blir
-  citatet en vänsterspalt med kommentaren intill. Samma block, två
-  uppställningar, inget val att göra fel. Citatet bär en streckad
-  vänsterkant som håller ihop det med källan utan att rita en ruta.
-- **Faktarad** är etikett över värde i spalter mellan två streckade
-  linjer. Skild från tabellen med flit: en tabell jämför rader med
-  varandra, en faktarad räknar upp egenskaper hos *en* sak.
-- **Tabellen** har bildtext i kapitäler och **framhävda rader**. En tabell
-  i en grammatikanteckning finns nästan alltid för en rads skull —
-  paradigmet visas helt, men det är dativen man skriver om.
-- **Anmärkningen** har en solid svart flik med ordet (Not, Obs, Tips) och
-  innehållet i en ramad ruta intill. Ordet bär betydelsen; flikens färg
-  skiljer bara de tre slagen åt och behövs inte för att förstå rutan.
-
-Tre är gjorda för språkstudier snarare än för dokumentation:
-
-- **Böjning** är en tabell där första spalten är en etikettspalt, med
-  färdiga uppsättningar för italienska, tyska, svenska, engelska och
-  tyska kasus. Ingen skriver io/tu/lui/noi/voi/loro för hand mer än en gång.
-- **Ordpar** är glosor i två spalter.
-- **Paralleltext** är samma stycke på två språk sida vid sida. Varken den
-  eller ordparen staplas på telefonen: två språk under varandra är inte en
-  paralleltext utan två texter, och hela poängen är att kunna kasta
-  blicken i sidled. Löptexten går ned i grad i stället.
-
-**Bladet har två lägen.** I läsläget finns ingen redigering alls: inga
-verktygsrader, inga kortramar, ingen blockväljare, ingen raderaknapp.
-Titeln är en `<h1>` och inte ett fält — ett fält som ser ut som en rubrik
-är ändå ett fält, markören hamnar i det och skärmläsaren säger
-"inmatning" där det står en rubrik. Utkastmärket blir en etikett.
-
-Växlaren sitter uppe till höger, och **Esc** lämnar redigeringsläget
-(dock inte medan markören står i ett fält, där tangenten ofta betyder
-något annat). Läget hör till sessionen och inte till bladet: är man mitt
-i en skrivstund skall ett byte från *Dativ* till *Genitiv* inte kasta
-tillbaka en till läsläge vid varje klick i trädet. Ett **nytt** blad
-öppnas i redigeringsläge — där finns ingenting att läsa.
-
-I redigeringsläget fungerar **⌘B**, **⌘I** och **⌘E** i alla textfält som
-bär markering — fet, kursiv och kod. De **växlar**: ett andra tryck tar
-bort markeringen igen, annars staplas tecknen till `****ord****`.
-
-Det svåra är att stjärnorna löper ihop. I Markdown betyder löpans längd
-olika saker — `*ord*` kursiv, `**ord**` fet, `***ord***` båda — så
-växlingen räknar löpan i stället för att titta på om tecknet står
-bredvid: kursiv finns om löpan är udda, fet om den är minst två. Utan
-det gör ⌘I på fet text den kursiv i stället för fet **och** kursiv.
-
-Inne i redigeringsläget syns varje blocks verktygsrad hela tiden, inte
-vid hovring. Ett finger hovrar inte. Det är just därför lägena behövs:
-knappar som alltid syns är rätt medan man skriver och fel medan man
-läser, och samma yta kan inte vara båda. Blocken redigeras på knapptryck
-och inte på klick i texten — ett stycke som blir ett textfält när man
-klickar i det går inte att markera med musen.
-
-**Omslagen ligger i en egen lagerpost.** Sidan sparas medan du skriver,
-och låg bilderna i samma post som texten skulle varenda omslag skickas
-upp på nytt vid varje tangenttryckning. `Sida`-entiteten tar godtyckliga
-id:n, så `sprak` och `sprak-omslag` kostar ingen ny maskineri.
-
-Bilderna krymps i webbläsaren till 300 px bredd som JPEG, ungefär tjugo
-kilobyte styck. Det är inte snålhet: `localStorage` rymmer omkring fem
-megabyte, och ett enda omslag rakt från telefonens kamera skulle kunna
-fylla lagret och tysta varje efterföljande skrivning — inklusive
-kalenderns.
-
-Mappen ritas med systemmappens silhuett men raka hörn, hårfin ram och
-hyllans färg. En rundad blå systemmapp hade varit trognare macOS och
-sett ut som en gäst i en app där ingenting annat är rundat.
-
 ## Mobil
 
 Appen är byggd för att användas med tummen.
@@ -587,53 +516,6 @@ krockar trycks stegen ihop i stället för att svämma över kolumnen; det
 understa blocket behåller alltid drygt en fjärdedel av bredden.
 
 Se `lib/layout.ts` och `test/layout.test.ts`.
-
-### Fornsvenska
-
-Egenstudier. Sidan svarar på **en** fråga överst — vad återstår att
-skaffa fram — och därför ligger mätarpanelen först och litteraturregistret
-direkt under. Att göra och idéer är småsaker vid sidan av och tar höger
-spalt.
-
-Varje verk bär en **kort stabil kod**, `FSV-014`. Den finns för att kunna
-hänvisa till en post utanför appen: i en anteckning, i ett utkast, i ett
-mejl till ett bibliotek. Ett slumpat id duger inte till det, och titeln är
-för lång och ändrar sig.
-
-Löpnumret tas alltid som det största av räknaren och högsta använda
-nummer. Två enheter som lägger till varsitt verk offline har samma
-räknare, och den som synkar sist skulle annars skriva en dubblett — vilket
-är särskilt illa när koden är det man hänvisar till.
-
-**Tre lägen:** Behövs → Har → Läst. Lägesmätaren är också knappen som
-stegar framåt; att flytta en post är den vanligaste handlingen på sidan
-och skall inte kräva att man först fäller ut raden.
-
-**Slaget är fri text** — examensarbete, licentiatavhandling, utgåva,
-faksimil, särtryck. Akademiska källtyper låter sig inte listas i en
-rullgardin, och en lista som saknar just din typ tvingar fram fel val.
-
-**Källhänvisningen** byggs ur de fält som råkar vara ifyllda, och tomma
-delar utelämnas helt i stället för att lämna kvar sina skiljetecken. En
-hänvisning med ". ." i mitten ser slarvigare ut än ingen alls.
-
-Länkfältet godtar bara `http` och `https`. En godtycklig sträng här hamnar
-i ett `href` som klickas, och `javascript:` i ett fält som synkas mellan
-enheter är precis det man inte vill ha. Saneringen sker både vid
-inmatning och vid tolkning.
-
-**Att göra-listan är egen** och rör inte appens uppgifter. Det är ett val
-med en känd kostnad — inga datum, ingen ⌘K-fångst, inget sök — och en känd
-vinst: projektstoket förorenar inte den dagliga listan.
-
-En **använd idé bockas av, inte raderas.** Annars fångar man samma tanke
-en gång till om ett halvår.
-
-Sidan ser avancerad ut genom **täthet och precision**, inte genom nya
-färger: samma fem värden, samma hårfina linjer, samma monospace. Ett sken,
-en tonad yta eller en accentfärg till hade sett modernt ut i en skärmdump
-och som en gäst i appen. Accenten bärs bara av det som återstår att göra
-något åt — antalet som behövs, och lägesmätaren på just de posterna.
 
 ### Privatekonomi
 
@@ -1001,7 +883,7 @@ Demomaterialet som tidigare såddes automatiskt ligger kvar i
 
 ## Prov
 
-`npm test` kör femton sviter:
+`npm test` kör fjorton sviter:
 
 - **Upprepningsmotorn** — 22 prov över skottår, korta månader, sommartid,
   räknade serier sedda genom sena fönster, undantag och flyttade förekomster.
@@ -1019,13 +901,13 @@ Demomaterialet som tidigare såddes automatiskt ligger kvar i
   praktiken sin första rad.
 - **Kopplingarna** — 12 prov över skiftläge, blanksteg, mål som saknas och
   poster som länkar till sig själva.
-- **Språkbiblioteket** — 38 prov över tolkningen av data databasen inte
-  kontrollerar, trädstädningen (en borttagen hylla måste ta med sig sina
-  mappar och blad, annars blir de kvar osynliga men synkade och växer för
-  varje språk man ångrar) och markeringen.
 - **Privatekonomin** — 52 prov över all matematik. Tyngdpunkten ligger på
   skillnaden mellan noll och okänt, på att sparmålet räknas på utfall och
   inte på avsikt, och på att prognosen håller tyst när den inte vet.
+- **Gjort-remsan** — 13 prov. Tyngdpunkten ligger på dagens gräns: en
+  rad hamnar på rätt dag, flera ryms på samma, och en rad vars datum
+  inte är en dagnyckel hör till INGEN dag — inte till den tomma. Det
+  felet såg inte ut som ett fel utan som att man glömt skriva in raden.
 - **Parkeringen** — 19 prov. Tyngdpunkten ligger på översättningen från
   lapp till händelse — att titel, kalender och längd verkligen följer
   med — och på räkningen från pekarens y-läge till ett klockslag, som är
@@ -1038,10 +920,6 @@ Demomaterialet som tidigare såddes automatiskt ligger kvar i
   och att de tre diagrammen hoppar över det de inte vet i stället för att
   gissa. Här ligger också regeln att snedstreck inte delar druvor:
   "Shiraz/Syrah" är ett namn och inte två.
-- **Fornsvenskasidan** — 24 prov, med tyngdpunkt på koden (en efterbliven
-  räknare får aldrig ge en dubblett), på källhänvisningen (tomma fält
-  lämnar inga skiljetecken efter sig) och på att bara `http` och `https`
-  släpps in i ett `href`.
 - **Högskoleprovssidan** — 35 prov, med tyngdpunkt på tolkningen av data
   databasen inte kontrollerar: skräp in ger en tom men ritbar sida, och
   ett tomt fält blir `null` och inte noll. (`Number("")` är 0 i
@@ -1057,7 +935,7 @@ Demomaterialet som tidigare såddes automatiskt ligger kvar i
 - **Uppgifterna** — 16 prov, mest om sorteringen. En att göra-lista är i
   praktiken sin ordning: står fel sak överst gör man fel sak, och det
   märks inte förrän dagen är slut.
-- **Vyerna** — 35 prov som renderar varje vy, varje panel och varje sida
+- **Vyerna** — 30 prov som renderar varje vy, varje panel och varje sida
   under Annat till HTML och kontrollerar att de innehåller det de skall,
   inklusive att kolumnpackningen faktiskt delar bredden mellan krockande
   block. Sidornas block ritas dessutom i sitt REDIGERINGSläge, som är

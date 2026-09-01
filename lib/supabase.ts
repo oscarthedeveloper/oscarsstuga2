@@ -67,3 +67,4 @@ export const TABELL_UPPGIFTER = "uppgifter";
 export const TABELL_ANTECKNINGAR = "anteckningar";
 export const TABELL_SIDOR = "sidor";
 export const TABELL_LAPPAR = "lappar";
+export const TABELL_GJORT = "gjort";

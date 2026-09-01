@@ -1,6 +1,6 @@
 {
-  "name": "Kalendariet",
-  "short_name": "Kalendariet",
+  "name": "Oscars databas",
+  "short_name": "Oscars databas",
   "description": "Kalender med dags-, tredagars-, vecko-, månads- och årsvy. Fungerar utan nät.",
   "lang": "sv",
   "dir": "ltr",

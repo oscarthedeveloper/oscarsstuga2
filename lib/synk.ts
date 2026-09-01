@@ -31,6 +31,7 @@ import type {
   Prioritet,
   Synkbar,
   Upprepning,
+  Gjort,
   Lapp,
   Uppgift,
 } from "./typer";
@@ -41,6 +42,7 @@ import {
   TABELL_HANDELSER,
   TABELL_SIDOR,
   TABELL_KALENDRAR,
+  TABELL_GJORT,
   TABELL_LAPPAR,
   TABELL_UPPGIFTER,
   hamtaKlient,
@@ -50,6 +52,7 @@ import {
   normaliseraAnteckning,
   normaliseraSida,
   normaliseraKalender,
+  normaliseraGjort,
   normaliseraLapp,
   normaliseraUppgift,
   type Ogonblick,
@@ -269,6 +272,44 @@ function uppgiftFranRad(r: UppgiftRad): Uppgift {
     klar: !!r.klar,
     klarVid: r.klar_vid ?? null,
     forfaller: r.forfaller ?? null,
+    skapad: r.skapad,
+    andrad: r.andrad,
+    raderad: r.raderad ?? null,
+    synkad: true,
+  });
+}
+
+interface GjortRad {
+  agare: string;
+  id: string;
+  text: string;
+  datum: string;
+  kalender_id: string;
+  skapad: string;
+  andrad: string;
+  raderad: string | null;
+  synk_vid?: string;
+}
+
+function gjortTillRad(g: Gjort, agare: string): GjortRad {
+  return {
+    agare,
+    id: g.id,
+    text: g.text,
+    datum: g.datum,
+    kalender_id: g.kalenderId,
+    skapad: g.skapad,
+    andrad: g.andrad,
+    raderad: g.raderad,
+  };
+}
+
+function gjortFranRad(r: GjortRad): Gjort {
+  return normaliseraGjort({
+    id: r.id,
+    text: r.text,
+    datum: r.datum,
+    kalenderId: r.kalender_id,
     skapad: r.skapad,
     andrad: r.andrad,
     raderad: r.raderad ?? null,
@@ -511,7 +552,8 @@ export function antalIvag(o: Ogonblick): number {
     osynkade(o.uppgifter).length +
     osynkade(o.anteckningar).length +
     osynkade(o.sidor).length +
-    osynkade(o.lappar).length
+    osynkade(o.lappar).length +
+    osynkade(o.gjort).length
   );
 }
 
@@ -558,7 +600,7 @@ export async function synka(
   };
 
   /* --- 1. Hämta allt som rört sig sedan förra körningen ------------ */
-  const [svarH, svarK, svarU, svarA, svarS, svarL] = await Promise.all([
+  const [svarH, svarK, svarU, svarA, svarS, svarL, svarG] = await Promise.all([
     klient
       .from(TABELL_HANDELSER)
       .select("*")
@@ -589,6 +631,11 @@ export async function synka(
       .select("*")
       .gt("synk_vid", franMarkor)
       .order("synk_vid", { ascending: true }),
+    klient
+      .from(TABELL_GJORT)
+      .select("*")
+      .gt("synk_vid", franMarkor)
+      .order("synk_vid", { ascending: true }),
   ]);
 
   if (svarH.error) throw new Error(oversattRadfel(svarH.error.message));
@@ -600,6 +647,11 @@ export async function synka(
   const lapptabellFinns = !svarL.error || !tabellenSaknas(svarL.error.message);
   if (svarL.error && lapptabellFinns) {
     throw new Error(oversattRadfel(svarL.error.message));
+  }
+  // Samma sak för gjort-tabellen. Se `tabellenSaknas`.
+  const gjorttabellFinns = !svarG.error || !tabellenSaknas(svarG.error.message);
+  if (svarG.error && gjorttabellFinns) {
+    throw new Error(oversattRadfel(svarG.error.message));
   }
 
   // Provraden från diagnosen bär ett internt id och hör inte hemma i
@@ -623,12 +675,16 @@ export async function synka(
   const fjarrL = ((svarL.data ?? []) as LappRad[]).filter(
     (r) => !r.id.startsWith(INTERNT)
   );
+  const fjarrG = ((svarG.data ?? []) as GjortRad[]).filter(
+    (r) => !r.id.startsWith(INTERNT)
+  );
   for (const r of (svarH.data ?? []) as HandelseRad[]) senare(r.synk_vid);
   for (const r of (svarK.data ?? []) as KalenderRad[]) senare(r.synk_vid);
   for (const r of (svarU.data ?? []) as UppgiftRad[]) senare(r.synk_vid);
   for (const r of (svarA.data ?? []) as AnteckningRad[]) senare(r.synk_vid);
   for (const r of (svarS.data ?? []) as SidaRad[]) senare(r.synk_vid);
   for (const r of (svarL.data ?? []) as LappRad[]) senare(r.synk_vid);
+  for (const r of (svarG.data ?? []) as GjortRad[]) senare(r.synk_vid);
   let data: Ogonblick = {
     handelser: sammanfoga(lokal.handelser, fjarrH.map(franRad)),
     kalendrar: sammanfogaKalendrar(
@@ -642,6 +698,7 @@ export async function synka(
     ),
     sidor: sammanfoga(lokal.sidor, fjarrS.map(sidaFranRad)),
     lappar: sammanfoga(lokal.lappar, fjarrL.map(lappFranRad)),
+    gjort: sammanfoga(lokal.gjort, fjarrG.map(gjortFranRad)),
   };
 
   /* --- 2. Skjut upp det som molnet inte sett ----------------------- */
@@ -653,6 +710,7 @@ export async function synka(
   // Utan tabell finns ingenstans att skicka. Lapparna stannar osynkade
   // och går iväg av sig själva den dag tabellen finns.
   const uppL = lapptabellFinns ? osynkade(data.lappar) : [];
+  const uppG = gjorttabellFinns ? osynkade(data.gjort) : [];
 
   // Kalendrarna först: en händelse pekar på sin kalender, och den bör
   // finnas uppe innan händelsen gör det. Databasen har medvetet ingen
@@ -738,6 +796,19 @@ export async function synka(
     }
   }
 
+  if (uppG.length > 0) {
+    for (const klump of dela(uppG, 200)) {
+      const svar = await klient
+        .from(TABELL_GJORT)
+        .upsert(
+          klump.map((g) => gjortTillRad(g, anvandarId)),
+          { onConflict: "agare,id" }
+        )
+        .select("id");
+      if (svar.error) throw new Error(oversattRadfel(svar.error.message));
+    }
+  }
+
   // Först när skrivningen gått igenom får posterna räknas som synkade.
   const uppH_ider = new Set(uppH.map((h) => h.id));
   const uppK_ider = new Set(uppK.map((k) => k.id));
@@ -745,6 +816,7 @@ export async function synka(
   const uppA_ider = new Set(uppA.map((a) => a.id));
   const uppS_ider = new Set(uppS.map((x) => x.id));
   const uppL_ider = new Set(uppL.map((l) => l.id));
+  const uppG_ider = new Set(uppG.map((g) => g.id));
   data = {
     handelser: data.handelser.map((h) =>
       uppH_ider.has(h.id) ? { ...h, synkad: true } : h
@@ -764,6 +836,9 @@ export async function synka(
     lappar: data.lappar.map((l) =>
       uppL_ider.has(l.id) ? { ...l, synkad: true } : l
     ),
+    gjort: data.gjort.map((g) =>
+      uppG_ider.has(g.id) ? { ...g, synkad: true } : g
+    ),
   };
 
   skrivMarkor(anvandarId, nyMarkor);
@@ -777,14 +852,16 @@ export async function synka(
       fjarrU.length +
       fjarrA.length +
       fjarrS.length +
-      fjarrL.length,
+      fjarrL.length +
+      fjarrG.length,
     upp:
       uppH.length +
       uppK.length +
       uppU.length +
       uppA.length +
       uppS.length +
-      uppL.length,
+      uppL.length +
+      uppG.length,
   };
 }
 

@@ -217,6 +217,38 @@ export interface Lapp extends Synkbar {
   skapad: string;
 }
 
+/**
+ * Något du gjort — fört in i efterhand.
+ *
+ * Det FEMTE benet, och gränsen mot de fyra andra går vid tempus. En
+ * händelse äger en plats i tiden och är en avsikt tills den passerat. En
+ * uppgift äger en avsikt och bockas av när den är gjord. En anteckning
+ * äger det man vet. En lapp blir en händelse. Ett GJORT går inte att
+ * bocka av — det är redan gjort — och det har ingen varaktighet att rita
+ * ut i rutnätet, bara en dag och en rad text.
+ *
+ * Att pressa in det bland uppgifterna hade betytt en att göra-lista full
+ * av sådant man redan gjort, med en bock satt i samma stund raden
+ * skrevs. Att göra det till en heldagshändelse hade fyllt heldagsremsan
+ * med sådant som inte upptar en dag.
+ *
+ * TEXTEN ÄR FRI, med flit. "1,45 h HP-plugg" är hur man själv skriver
+ * det, och ett fält som krävde ett tal i en ruta och en etikett i en
+ * annan hade gjort en anteckning på fem sekunder till ett formulär.
+ *
+ * Kalendern delas med de övriga fyra, så att raden bär färg i remsan och
+ * följer med kalenderfiltret.
+ */
+export interface Gjort extends Synkbar {
+  id: string;
+  /** Fri text: "Sprungit", "1,45 h HP-plugg", "Läst 40 sidor av X". */
+  text: string;
+  /** Datumnyckel YYYY-MM-DD. Alltid satt — ett gjort utan dag är ingen dag. */
+  datum: string;
+  kalenderId: string;
+  skapad: string;
+}
+
 export const PRIORITETER: {
   varde: Prioritet;
   namn: string;

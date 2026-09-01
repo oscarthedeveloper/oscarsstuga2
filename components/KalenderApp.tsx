@@ -11,7 +11,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Forekomst, Handelse, Lapp, Vy } from "@/lib/typer";
+import type { Forekomst, Gjort, Handelse, Lapp, Vy } from "@/lib/typer";
 import { slapptid, type Slappmal, type Slappning } from "@/lib/lappar";
 import { VYER } from "@/lib/typer";
 import { useButik } from "./Butik";
@@ -458,6 +458,34 @@ export default function KalenderApp() {
     [butik]
   );
 
+  /**
+   * En rad i gjort-remsan.
+   *
+   * Kalendern väljs inte vid inmatningen — man skriver "Sprungit" och
+   * vill inte peka i en rullgardin först. Raden får den kalender den
+   * senast fick, och går att flytta efteråt genom att klicka på den.
+   * Vid första raden finns ingen sådan; då blir det den första
+   * kalendern, samma förval som en ny händelse får.
+   */
+  const senasteGjortKalender = useRef<string | null>(null);
+
+  const laggGjort = useCallback(
+    (datum: string, text: string) => {
+      const kalenderId =
+        senasteGjortKalender.current ?? butik.kalendrar[0]?.id ?? "arbete";
+      butik.skapaGjort({ datum, text, kalenderId });
+    },
+    [butik]
+  );
+
+  const andraGjort = useCallback(
+    (g: Gjort) => {
+      senasteGjortKalender.current = g.kalenderId;
+      butik.sparaGjort(g);
+    },
+    [butik]
+  );
+
   const flytta = useCallback(
     (f: Forekomst, nyStart: Date, nySlut: Date) => {
       if (f.serie) {
@@ -822,7 +850,7 @@ export default function KalenderApp() {
             <span className="hidden lg:flex items-center gap-2 shrink-0">
               <Marke />
               <span className="display text-ink text-[1.25rem] leading-none">
-                Kalendariet
+                Oscars databas
               </span>
             </span>
 
@@ -1106,6 +1134,11 @@ export default function KalenderApp() {
                 onFlytta={flytta}
                 onSkapa={(s, e, heldag) => nyHandelse(s, e, heldag)}
                 slapper={slapper}
+                gjort={butik.gjort}
+                kalendrar={butik.kalendrar}
+                onLaggGjort={laggGjort}
+                onAndraGjort={andraGjort}
+                onTaBortGjort={butik.taBortGjort}
               />
             )}
             </>

@@ -2202,6 +2202,107 @@ input.dokdeck:focus {
 }
 
 /* ==================================================================
+   GJORT-REMSAN
+
+   Dagens avklarade, under heldagsfältet. Byggd som heldagsremsan —
+   rännil till vänster, en cell per dag till höger — men raderna staplas
+   i stället för att spänna över dagar: ingenting här har någon
+   varaktighet.
+   ================================================================== */
+.gjortremsa {
+  border-bottom: 1px solid var(--ink);
+  background: var(--paper);
+}
+
+.gjortcell {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 2px;
+  padding: 3px;
+  min-height: 26px;
+  /* Cellen ÄR träffytan för att lägga till. Den är stor och mest tom,
+     och att kräva att man träffar en liten plusknapp hade gjort den
+     vanligaste handlingen till den svåraste. */
+  cursor: text;
+}
+
+/*
+ * En rad. Fyrkantig och hårfin som allt annat; färgen kommer från
+ * kalendern och ligger som en kant till vänster i stället för som en
+ * fylld yta. En fylld yta hade gjort remsan till ett fält av färg,
+ * och det som faktiskt skall läsas är orden.
+ */
+.gjortrad {
+  display: block;
+  max-width: 100%;
+  text-align: left;
+  font-size: 0.6rem;
+  line-height: 1.3;
+  padding: 2px 5px 2px 4px;
+  border: 1px solid rgb(17 17 17 / 0.25);
+  border-left-width: 3px;
+  background: var(--panel);
+  overflow-wrap: anywhere;
+  transition: border-color 120ms linear;
+}
+
+.gjortrad:hover {
+  border-color: var(--ink);
+}
+
+.gjortrad[data-ton="0"] { border-left-color: var(--kal-1-stark); }
+.gjortrad[data-ton="1"] { border-left-color: var(--kal-2-stark); }
+.gjortrad[data-ton="2"] { border-left-color: var(--kal-3-stark); }
+.gjortrad[data-ton="3"] { border-left-color: var(--kal-4-stark); }
+.gjortrad[data-ton="4"] { border-left-color: var(--kal-5-stark); }
+.gjortrad[data-ton="5"] { border-left-color: var(--kal-6-stark); }
+
+/* Plusknappen syns bara när man är i cellen. Den är en genväg, inte
+   sättet: cellen själv tar emot klicket. */
+.gjortplus {
+  font-size: 0.6rem;
+  line-height: 1;
+  padding: 2px 5px;
+  opacity: 0;
+  transition: opacity 120ms linear;
+}
+
+.gjortcell:hover .gjortplus,
+.gjortplus:focus-visible {
+  opacity: 0.45;
+}
+
+.gjortplus:hover {
+  opacity: 1;
+}
+
+.gjortfalt {
+  display: flex;
+  gap: 2px;
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+.gjortfalt .falt {
+  font-size: 0.6rem;
+  padding: 1px 4px;
+  min-width: 0;
+}
+
+@media (max-width: 767px) {
+  /* På telefonen är kolumnerna smala. Raderna får då ta hela bredden
+     var, annars blir varje rad två tecken bred. */
+  .gjortrad {
+    flex: 1 1 100%;
+  }
+
+  .gjortplus {
+    opacity: 0.45;
+  }
+}
+
+/* ==================================================================
    PARKERINGEN
 
    Lappar i sidopanelen: det som skall in i kalendern men ännu inte

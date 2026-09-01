@@ -169,6 +169,7 @@ function bas(): Ogonblick {
     anteckningar: [],
     sidor: [],
     lappar: [],
+    gjort: [],
     kalendrar: [
       normaliseraKalender({ id: "a", namn: "Arbete", ton: 3 }),
       normaliseraKalender({ id: "s", namn: "Studier", ton: 0 }),

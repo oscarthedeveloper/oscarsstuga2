@@ -24,14 +24,14 @@ const mono = Martian_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Kalendariet",
+  title: "Oscars databas",
   description:
     "Kalender med dags-, tredagars-, vecko-, månads- och årsvy. Dragbara händelser, fullständiga upprepningsregler, och den fungerar utan nät.",
   manifest: "/manifest.webmanifest",
-  applicationName: "Kalendariet",
+  applicationName: "Oscars databas",
   appleWebApp: {
     capable: true,
-    title: "Kalendariet",
+    title: "Oscars databas",
     statusBarStyle: "default",
   },
   icons: {

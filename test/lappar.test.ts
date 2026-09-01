@@ -237,6 +237,7 @@ prov("gravstenar städas som för alla andra sorter", () => {
         synkad: true,
       }),
     ],
+    gjort: [],
   };
   const kvar = stadaGravstenar(o, new Date("2026-08-12T00:00:00Z"));
   lika(kvar.lappar.map((l) => l.id), ["levande", "fersk"]);
@@ -252,6 +253,7 @@ prov("lapparna följer med när en kalender tas bort", () => {
     anteckningar: [],
     sidor: [],
     lappar: [normaliseraLapp({ id: "l1", kalenderId: "privat" })],
+    gjort: [],
   };
   const flyttad = taBortKalender(o, "privat", "arbete");
   lika(flyttad.lappar[0].kalenderId, "arbete");

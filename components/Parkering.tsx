@@ -246,7 +246,7 @@ export default function Parkering({
   const sorterade = sorteraLappar(lappar);
 
   return (
-    <div className="px-2.5 pb-2 shrink-0 border-t border-[rgb(253_251_239/0.2)] pt-2.5">
+    <div className="px-2.5 pb-2 border-t border-[rgb(253_251_239/0.2)] pt-2.5">
       <div className="flex items-center justify-between mb-1 gap-2">
         <span className="pico opacity-60">Utan datum</span>
         <span className="pico opacity-40 tabnum">{sorterade.length || ""}</span>

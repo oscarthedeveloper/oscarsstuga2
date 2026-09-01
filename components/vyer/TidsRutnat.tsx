@@ -22,7 +22,8 @@ import {
   useRef,
   useState,
 } from "react";
-import type { Forekomst, Layout } from "@/lib/typer";
+import type { Forekomst, Gjort, Kalender, Layout } from "@/lib/typer";
+import GjortRemsa from "./GjortRemsa";
 import { klamMinuter, type Slappning } from "@/lib/lappar";
 import { useMobil } from "@/lib/anvandMedia";
 import { laggUt, laggUtBand, type Packbar } from "@/lib/layout";
@@ -80,6 +81,18 @@ export interface RutnatProps {
    * lappen skulle landa; sidopanelen sköter själva draget.
    */
   slapper?: Slappning | null;
+  /**
+   * Dagens gjorda, i en egen remsa under heldagsfältet.
+   *
+   * Utelämnas remsan ritas den inte. Rutnätet används också på ställen
+   * där den inte hör hemma, och en tom remsa som alltid står där hade
+   * tagit höjd från dygnet utan att säga något.
+   */
+  gjort?: Gjort[];
+  kalendrar?: Kalender[];
+  onLaggGjort?(datum: string, text: string): void;
+  onAndraGjort?(g: Gjort): void;
+  onTaBortGjort?(id: string): void;
 }
 
 interface Segment extends Packbar {
@@ -127,6 +140,11 @@ export default function TidsRutnat({
   onSkapa,
   visaVecka,
   slapper = null,
+  gjort,
+  kalendrar = [],
+  onLaggGjort,
+  onAndraGjort,
+  onTaBortGjort,
 }: RutnatProps) {
   const rutnatRef = useRef<HTMLDivElement | null>(null);
   const skrollRef = useRef<HTMLDivElement | null>(null);
@@ -650,6 +668,22 @@ export default function TidsRutnat({
           })}
         </div>
       </div>
+
+      {/* Gjort-remsan. Under heldagen, för det är dit blicken går när
+          man för in dagens saker på kvällen — och ovanför det rullande
+          rutnätet, för den hör till dagen som helhet och inte till något
+          klockslag. Den rullar inte med: det man gjort skall stå kvar i
+          synfältet medan man bläddrar i timmarna. */}
+      {gjort && onLaggGjort && onAndraGjort && onTaBortGjort && (
+        <GjortRemsa
+          dagar={dagar}
+          gjort={gjort}
+          kalendrar={kalendrar}
+          onLagg={onLaggGjort}
+          onAndra={onAndraGjort}
+          onTaBort={onTaBortGjort}
+        />
+      )}
 
       {/* Rullande rutnät */}
       <div ref={skrollRef} className="flex-1 min-h-0 overflow-y-auto tunnskroll">

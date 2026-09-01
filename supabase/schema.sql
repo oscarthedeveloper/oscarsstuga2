@@ -304,6 +304,55 @@ create policy "egna lappar"
   with check (agare = auth.uid());
 
 -- -------------------------------------------------------------------
+-- GJORT
+-- Dagens avklarade, fört in i efterhand: "Sprungit", "1,45 h HP-plugg",
+-- "Läst 40 sidor av X".
+--
+-- Egen tabell av samma skäl som lapparna har en. Gränsen mot de andra
+-- sorterna går vid tempus: ett gjort går inte att bocka av, det ÄR
+-- gjort, och det har ingen varaktighet att rita ut i rutnätet — bara en
+-- dag och en rad text.
+--
+-- `text` är fri med flit. "1,45 h HP-plugg" är hur man själv skriver
+-- det, och ett schema som krävde ett tal i en kolumn och en etikett i en
+-- annan hade gjort en anteckning på fem sekunder till ett formulär.
+--
+-- TABELLEN TILLKOM EFTER ATT APPEN REDAN VAR I DRIFT, precis som
+-- `lappar`. Synkmotorn tål därför att den saknas.
+-- -------------------------------------------------------------------
+create table if not exists public.gjort (
+  agare       uuid        not null default auth.uid()
+                          references auth.users (id) on delete cascade,
+  id          text        not null,
+  text        text        not null default '',
+  datum       text        not null default '',
+  kalender_id text        not null default 'arbete',
+  skapad      timestamptz not null default now(),
+  andrad      timestamptz not null,
+  raderad     timestamptz,
+  synk_vid    timestamptz not null default now(),
+  primary key (agare, id)
+);
+
+drop trigger if exists synk_vid_gjort on public.gjort;
+create trigger synk_vid_gjort
+  before insert or update on public.gjort
+  for each row execute function public.satt_synk_vid();
+
+create index if not exists gjort_synk_idx
+  on public.gjort (agare, synk_vid);
+
+alter table public.gjort enable row level security;
+
+drop policy if exists "egna gjort" on public.gjort;
+create policy "egna gjort"
+  on public.gjort
+  for all
+  to authenticated
+  using (agare = auth.uid())
+  with check (agare = auth.uid());
+
+-- -------------------------------------------------------------------
 -- INDEX
 -- Varje synkrunda frågar "vad har hänt sedan X, för mig". Utan det här
 -- indexet blir det en full tabellgenomgång vid varje appstart.
