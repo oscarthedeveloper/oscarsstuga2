@@ -444,51 +444,44 @@ $$;
 -- Slås detta inte på fungerar appen ändå; den blir bara långsammare på
 -- att upptäcka ändringar.
 -- ===================================================================
+-- Tabellerna räknas upp EN gång, i en slinga. Blocket var tidigare
+-- fem nästan identiska if-satser, och när `lappar` och `gjort`
+-- tillkom glömdes de bort där. Följden syntes bara mellan två
+-- enheter: en rad man skrev på telefonen dök inte upp på datorn
+-- förrän nästa pollningsvarv, vilket ser ut som att den inte synkas.
 do $$
+declare
+  t text;
 begin
-  if not exists (
-    select 1 from pg_publication_tables
-    where pubname = 'supabase_realtime'
-      and schemaname = 'public'
-      and tablename = 'handelser'
-  ) then
-    alter publication supabase_realtime add table public.handelser;
-  end if;
-
-  if not exists (
-    select 1 from pg_publication_tables
-    where pubname = 'supabase_realtime'
-      and schemaname = 'public'
-      and tablename = 'kalendrar'
-  ) then
-    alter publication supabase_realtime add table public.kalendrar;
-  end if;
-
-  if not exists (
-    select 1 from pg_publication_tables
-    where pubname = 'supabase_realtime'
-      and schemaname = 'public'
-      and tablename = 'uppgifter'
-  ) then
-    alter publication supabase_realtime add table public.uppgifter;
-  end if;
-
-  if not exists (
-    select 1 from pg_publication_tables
-    where pubname = 'supabase_realtime'
-      and schemaname = 'public'
-      and tablename = 'anteckningar'
-  ) then
-    alter publication supabase_realtime add table public.anteckningar;
-  end if;
-
-  if not exists (
-    select 1 from pg_publication_tables
-    where pubname = 'supabase_realtime'
-      and schemaname = 'public'
-      and tablename = 'sidor'
-  ) then
-    alter publication supabase_realtime add table public.sidor;
-  end if;
+  foreach t in array array[
+    'handelser', 'kalendrar', 'uppgifter', 'anteckningar',
+    'sidor', 'lappar', 'gjort'
+  ]
+  loop
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime'
+        and schemaname = 'public'
+        and tablename = t
+    ) then
+      execute format(
+        'alter publication supabase_realtime add table public.%I', t
+      );
+    end if;
+  end loop;
 end
 $$;
+
+-- ===================================================================
+-- SIST: BE POSTGREST LÄSA OM SCHEMAT
+--
+-- PostgREST håller en egen bild av vilka tabeller och kolumner som
+-- finns. Den uppdateras oftast av sig själv, men inte alltid direkt
+-- efter en `create table` i SQL-editorn — och tills den gjort det
+-- svarar API:et "could not find the table … in the schema cache" på en
+-- tabell som bevisligen finns. Appen tolkar då tabellen som inte
+-- skapad och låter innehållet ligga kvar på enheten, tyst.
+--
+-- En rad räcker för att slippa det.
+-- ===================================================================
+notify pgrst, 'reload schema';

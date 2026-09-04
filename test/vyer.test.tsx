@@ -23,6 +23,7 @@ import KalenderPanel from "../components/KalenderPanel";
 import AttGora from "../components/AttGora";
 import Anteckningar from "../components/Anteckningar";
 import Annat from "../components/Annat";
+import Litteratur from "../components/sidor/Litteratur";
 import Viner from "../components/sidor/Viner";
 import Betygsmatare from "../components/sidor/block/Betygsmatare";
 import Delstapel from "../components/sidor/block/Delstapel";
@@ -241,7 +242,7 @@ prov("appskalet ritas utan att kasta", () => {
   const html = renderToStaticMarkup(
     h(ButikProvider, null, h(KalenderApp))
   );
-  innehaller(html, "Kalendariet");
+  innehaller(html, "Oscars databas");
   innehaller(html, "Vecka");
   innehaller(html, "Ny händelse");
   innehaller(html, "Hantera");
@@ -799,6 +800,16 @@ prov("privatekonomisidan ritar mätarpanel och tomma lägen", () => {
   // Utan månad skall sidan be om en, inte visa nollor som ser ut som svar.
   innehaller(html, "Ingen månad upplagd");
   innehaller(html, "Sätt ett målbelopp");
+});
+
+prov("litteratursidan ritar hyllor, läslogg och tomt läge", () => {
+  const html = renderToStaticMarkup(
+    h(ButikProvider, null, h(Litteratur, { sida: null, spara: tomt }))
+  );
+  innehaller(html, "Mitt litteraturbibliotek");
+  innehaller(html, "Läslogg");
+  innehaller(html, "Din första hylla väntar");
+  innehaller(html, "+ Lägg till bok");
 });
 
 prov("mobilen kan bläddra, växla sida och nå paletten", () => {

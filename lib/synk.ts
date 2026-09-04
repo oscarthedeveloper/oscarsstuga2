@@ -45,6 +45,7 @@ import {
   TABELL_GJORT,
   TABELL_LAPPAR,
   TABELL_UPPGIFTER,
+  TABELLER,
   hamtaKlient,
 } from "./supabase";
 import {
@@ -358,26 +359,66 @@ function lappFranRad(r: LappRad): Lapp {
   });
 }
 
+/** Felkoder som betyder just "det finns ingen sådan tabell". */
+const KOD_INGEN_TABELL = new Set(["42P01", "PGRST205"]);
+
 /**
  * Sant när felet betyder "den där tabellen finns inte".
  *
- * Parkeringen tillkom efter att appen redan hade riktiga användare med
- * ett Supabase-projekt igång, och tabellen skapas för hand med SQL:en i
- * `supabase/schema.sql`. Innan den körts skulle ett vanligt kast göra
- * att HELA synkningen slutade fungera — händelser, uppgifter,
+ * Parkeringen och gjort-remsan tillkom efter att appen redan var i drift
+ * med ett Supabase-projekt igång, och tabellerna skapas för hand med
+ * SQL:en i `supabase/schema.sql`. Innan den körts skulle ett vanligt
+ * kast göra att HELA synkningen slutade fungera — händelser, uppgifter,
  * anteckningar och allt — för en funktion man kanske inte ens använder.
+ * Därför tigs just det felet ihjäl: posterna stannar på enheten och går
+ * iväg av sig själva samma dag tabellen finns.
  *
- * Därför tigs just det här felet ihjäl: lapparna stannar på enheten och
- * börjar synka av sig själva samma dag tabellen finns. Alla andra fel
- * kastas som vanligt; en tyst synk är annars det värsta som finns.
+ * FRÅGAN MÅSTE STÄLLAS SNÄVT. En tidigare version svarade ja på ett
+ * blott "does not exist", men PostgREST säger `column gjort.datum does
+ * not exist` när tabellen FINNS men har fel form — halvkörd SQL, en
+ * äldre tabell — och "schema cache" står även i PGRST204, som betyder
+ * att en KOLUMN saknas. Sväljs de felen ser en trasig tabellform
+ * likadan ut som en tabell som ännu inte skapats: ingenting skickas
+ * upp, ingenting kastas, och synken ser grön ut medan raderna blir
+ * kvar på enheten. Det var precis det som hände.
+ *
+ * Därför: felkoden först, och annars bara de två formuleringar som
+ * verkligen handlar om en tabell — aldrig om en kolumn.
  */
-function tabellenSaknas(meddelande: string): boolean {
-  const m = meddelande.toLowerCase();
+function tabellenSaknas(
+  fel: { message: string; code?: string },
+  tabell: string
+): boolean {
+  if (fel.code && KOD_INGEN_TABELL.has(fel.code)) return true;
+  const m = fel.message.toLowerCase();
+  const t = tabell.toLowerCase();
   return (
-    m.includes("does not exist") ||
-    m.includes("could not find the table") ||
-    m.includes("schema cache")
+    m.includes(`relation "public.${t}" does not exist`) ||
+    m.includes(`relation "${t}" does not exist`) ||
+    m.includes("could not find the table")
   );
+}
+
+/**
+ * Samma fråga, men den lämnar ett spår.
+ *
+ * Ett tyst svälj är det som gjorde felet svårt att hitta: remsan såg ut
+ * att fungera, synkraden sa "klar", och ingenting stod någonstans om att
+ * hälften av innehållet aldrig lämnade enheten. Nu står det i konsolen,
+ * som är det första man öppnar.
+ */
+function saknadTabell(
+  fel: { message: string; code?: string },
+  tabell: string
+): boolean {
+  if (!tabellenSaknas(fel, tabell)) return false;
+  console.warn(
+    `[kalendariet] tabellen "${tabell}" finns inte i databasen — ` +
+      `raderna stannar på enheten. Kör supabase/schema.sql (eller dess ` +
+      `${tabell}-avsnitt) i Supabase SQL Editor och kör sedan ` +
+      `\`notify pgrst, 'reload schema';\`. Rått svar: ${fel.message}`
+  );
+  return true;
 }
 
 interface AnteckningRad {
@@ -643,13 +684,15 @@ export async function synka(
   if (svarU.error) throw new Error(oversattRadfel(svarU.error.message));
   if (svarA.error) throw new Error(oversattRadfel(svarA.error.message));
   if (svarS.error) throw new Error(oversattRadfel(svarS.error.message));
-  // Saknas lapptabellen ännu har Oscar inte kört SQL:en. Se `tabellenSaknas`.
-  const lapptabellFinns = !svarL.error || !tabellenSaknas(svarL.error.message);
+  // Saknas lapptabellen ännu har Oscar inte kört SQL:en. Se `saknadTabell`.
+  const lapptabellFinns =
+    !svarL.error || !saknadTabell(svarL.error, TABELL_LAPPAR);
   if (svarL.error && lapptabellFinns) {
     throw new Error(oversattRadfel(svarL.error.message));
   }
-  // Samma sak för gjort-tabellen. Se `tabellenSaknas`.
-  const gjorttabellFinns = !svarG.error || !tabellenSaknas(svarG.error.message);
+  // Samma sak för gjort-tabellen. Se `saknadTabell`.
+  const gjorttabellFinns =
+    !svarG.error || !saknadTabell(svarG.error, TABELL_GJORT);
   if (svarG.error && gjorttabellFinns) {
     throw new Error(oversattRadfel(svarG.error.message));
   }
@@ -911,6 +954,16 @@ export interface Diagnos {
   inloggad: boolean;
   epost: string | null;
   tabeller: "ok" | "saknas" | "fel" | "okand";
+  /**
+   * De tabeller som databasen saknar, vid namn.
+   *
+   * Diagnosen frågade tidigare bara `handelser` och svarade "tabellerna
+   * finns" så fort DEN fanns. En sort som tillkommit senare kunde då
+   * sakna sin tabell utan att någonting någonstans sa det — synken teg
+   * om den med flit, och diagnosen intygade att allt stod rätt till.
+   * Den som hade problemet fick alltså det enda svar som inte hjälpte.
+   */
+  saknadeTabeller: string[];
   /** Om en riktig skrivning gick igenom. Läsning kan lyckas där skrivning faller. */
   skrivning: "ok" | "nekad" | "fel" | "oprovad";
   antalIMolnet: number | null;
@@ -920,6 +973,29 @@ export interface Diagnos {
   ratext: string | null;
 }
 
+
+/**
+ * Frågar varje tabell om den finns, och svarar med namnen på dem som
+ * inte gör det.
+ *
+ * En riktig förfrågan per tabell, inte en gissning ur en lista: det är
+ * bara databasen som vet vilken SQL som faktiskt körts. Frågorna går
+ * samtidigt — sju tomma huvudförfrågningar kostar en runda, inte sju.
+ *
+ * Bara "finns inte" räknas. Ett annat fel — nekad läsning, utgången
+ * session — betyder att tabellen finns men något annat är fel, och det
+ * har diagnosen andra rader för. Räknades det som saknad hade svaret
+ * pekat på fel sak.
+ */
+async function fragaTabeller(klient: SupabaseClient): Promise<string[]> {
+  const alla = TABELLER;
+  const svar = await Promise.all(
+    alla.map((t) => klient.from(t).select("id", { head: true }))
+  );
+  return alla.filter(
+    (t, i) => !!svar[i].error && tabellenSaknas(svar[i].error!, t)
+  );
+}
 
 /**
  * Svarar på frågan "varför synkas det inte". Kör en riktig förfrågan mot
@@ -938,6 +1014,7 @@ export async function diagnostisera(
     inloggad: !!anvandarId,
     epost,
     tabeller: "okand",
+    saknadeTabeller: [],
     skrivning: "oprovad",
     antalIMolnet: null,
     markor: anvandarId ? lasMarkor(anvandarId) : NOLLTID,
@@ -975,6 +1052,13 @@ export async function diagnostisera(
       };
     }
 
+    /* --- Vilka tabeller finns ---------------------------------------
+       Måste frågas var för sig. Att `handelser` svarar betyder bara att
+       den ursprungliga SQL:en körts; `lappar` och `gjort` tillkom senare
+       och kan mycket väl saknas i ett projekt där allt annat fungerar.
+       Det är det vanligaste skälet till att en ny sort inte synkas. */
+    const saknade = await fragaTabeller(klient);
+
     /* --- Skrivning --------------------------------------------------
        Läsning kan lyckas där skrivning faller: `using` i RLS styr vad
        man får se, `with check` vad man får skriva. Saknas det senare
@@ -1010,6 +1094,7 @@ export async function diagnostisera(
       return {
         ...bas,
         tabeller: "ok",
+        saknadeTabeller: saknade,
         skrivning: nekad ? "nekad" : "fel",
         antalIMolnet: (las.count ?? 0) - 1,
         meddelande: nekad
@@ -1021,11 +1106,19 @@ export async function diagnostisera(
 
     return {
       ...bas,
-      tabeller: "ok",
+      // En saknad tabell är inte "ok", hur bra resten än svarar: det som
+      // hör hemma i den når aldrig molnet.
+      tabeller: saknade.length > 0 ? "saknas" : "ok",
+      saknadeTabeller: saknade,
       skrivning: "ok",
       // Provraden räknas inte som en kalenderpost.
       antalIMolnet: Math.max(0, (las.count ?? 0) - 1),
-      meddelande: "Molnet svarar, tabellerna finns och skrivning går igenom.",
+      meddelande:
+        saknade.length > 0
+          ? `Molnet svarar och skrivning går igenom, men ${saknade.join(
+              " och "
+            )} saknas i databasen — det som hör dit stannar på enheten. Kör supabase/schema.sql i SQL Editor och därefter \`notify pgrst, 'reload schema';\`.`
+          : "Molnet svarar, tabellerna finns och skrivning går igenom.",
     };
   } catch (e) {
     return {

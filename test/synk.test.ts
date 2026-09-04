@@ -24,6 +24,7 @@ import {
   gravsatt,
   levande,
   normalisera,
+  normaliseraGjort,
   normaliseraKalender,
   rord,
   stadaGravstenar,
@@ -121,6 +122,69 @@ function falskKlientPerTabell(
 }
 
 const NU = "2026-08-12T10:00:00.000Z";
+
+/**
+ * Attrapp som låter EN tabell svara med ett fel.
+ *
+ * Tabellerna `lappar` och `gjort` tillkom efter att appen redan var i
+ * drift, och synkmotorn tiger med flit när de saknas. Det är just den
+ * tystnaden som måste provas: sväljer den för mycket blir en trasig
+ * tabellform omöjlig att skilja från en tabell som ännu inte skapats,
+ * och innehållet ligger kvar på enheten utan att någonting sägs.
+ */
+function falskKlientMedFel(
+  trasig: string,
+  fel: { message: string; code?: string },
+  skickat: Record<string, Record<string, unknown>[]> = {}
+) {
+  return {
+    from(tabell: string) {
+      const byggare: Record<string, unknown> = {};
+      Object.assign(byggare, {
+        select: () => byggare,
+        gt: () => byggare,
+        order: () =>
+          Promise.resolve(
+            tabell === trasig
+              ? { data: null, error: fel }
+              : { data: [], error: null }
+          ),
+        upsert: (rader: Record<string, unknown>[]) => {
+          skickat[tabell] = [...(skickat[tabell] ?? []), ...rader];
+          return {
+            select: () =>
+              Promise.resolve({
+                data: rader.map((r) => ({ id: r.id, synk_vid: NU })),
+                error: null,
+              }),
+          };
+        },
+      });
+      return byggare;
+    },
+  };
+}
+
+/** Ett tomt läge med en enda osynkad gjort-rad. */
+function lageMedGjort(): Ogonblick {
+  return {
+    handelser: [],
+    kalendrar: [],
+    uppgifter: [],
+    anteckningar: [],
+    sidor: [],
+    lappar: [],
+    gjort: [
+      normaliseraGjort({
+        id: "g1",
+        text: "Sprungit",
+        datum: "2026-08-12",
+        skapad: NU,
+        andrad: NU,
+      }),
+    ],
+  };
+}
 
 /** Minsta möjliga Supabase-klient: bara det synka() faktiskt rör. */
 function falskKlient(a: Attrapp) {
@@ -651,6 +715,114 @@ provAsync("nyare lokal sida vinner över molnets", async () => {
   lika(resultat.data.sidor[0].data, { inkomst: "ny" }, "molnet skrev över");
   // Och den lokala vinnaren skall ha skickats upp i samma körning.
   lika(skickat.sidor?.length, 1);
+});
+
+/* ==================================================================
+   NÄR EN TABELL SAKNAS
+
+   Gjort synkades inte, och det syntes ingenstans: synkraden sa "klar",
+   diagnosen sa "tabellerna finns" och raderna låg kvar på enheten.
+   Proven nedan håller isär de två lägen som såg likadana ut.
+   ================================================================== */
+
+provAsync("en tabell som inte finns tigs ihjäl — resten synkas", async () => {
+  const anvandare = "prov-gjort-saknas";
+  nollstallMarkor(anvandare);
+  const skickat: Record<string, Record<string, unknown>[]> = {};
+  const klient = falskKlientMedFel(
+    "gjort",
+    {
+      message: 'relation "public.gjort" does not exist',
+      code: "42P01",
+    },
+    skickat
+  );
+
+  const resultat = await synka(lageMedGjort(), anvandare, klient as never);
+  // Ingenting kastades: en sort man kanske inte ens använder får aldrig
+  // stoppa händelserna.
+  lika(resultat.upp, 0, "det fanns ingenstans att skicka");
+  lika(skickat.gjort, undefined, "ingen skrivning mot en tabell som inte finns");
+  // Och raden ligger kvar OSYNKAD, så den går iväg av sig själv den dag
+  // tabellen finns. Stämplades den som synkad vore den borta för gott.
+  lika(resultat.data.gjort[0].synkad, false);
+});
+
+provAsync("ett kolumnfel kastas — det är inte en saknad tabell", async () => {
+  // Det här var felet. En tidigare version svarade ja på ett blott
+  // "does not exist", och PostgREST säger så även när tabellen finns men
+  // har fel form. Halvkörd SQL såg då ut precis som ingen SQL alls:
+  // ingenting skickades upp, ingenting kastades, allt såg grönt ut.
+  const anvandare = "prov-gjort-kolumn";
+  nollstallMarkor(anvandare);
+  const klient = falskKlientMedFel("gjort", {
+    message: 'column gjort.datum does not exist',
+    code: "42703",
+  });
+
+  let kastade = false;
+  try {
+    await synka(lageMedGjort(), anvandare, klient as never);
+  } catch {
+    kastade = true;
+  }
+  lika(kastade, true, "en trasig tabellform måste synas");
+});
+
+provAsync("en saknad KOLUMN i schemacachen kastas också", async () => {
+  // PGRST204. "schema cache" står i både det här meddelandet och i det
+  // som betyder att TABELLEN saknas, så det räcker inte att söka på de
+  // orden — och den som svalde dem svalde det här felet med.
+  const anvandare = "prov-gjort-cache";
+  nollstallMarkor(anvandare);
+  const klient = falskKlientMedFel("gjort", {
+    message:
+      "Could not find the 'text' column of 'gjort' in the schema cache",
+    code: "PGRST204",
+  });
+
+  let kastade = false;
+  try {
+    await synka(lageMedGjort(), anvandare, klient as never);
+  } catch {
+    kastade = true;
+  }
+  lika(kastade, true, "en saknad kolumn är inte en saknad tabell");
+});
+
+provAsync("en tabell som saknas i schemacachen tigs däremot ihjäl", async () => {
+  // PGRST205, det svar man får strax efter `create table` innan
+  // PostgREST hunnit läsa om schemat.
+  const anvandare = "prov-gjort-cache-tabell";
+  nollstallMarkor(anvandare);
+  const klient = falskKlientMedFel("gjort", {
+    message:
+      "Could not find the table 'public.gjort' in the schema cache",
+    code: "PGRST205",
+  });
+
+  const resultat = await synka(lageMedGjort(), anvandare, klient as never);
+  lika(resultat.data.gjort[0].synkad, false, "raden väntar på tabellen");
+});
+
+provAsync("felet gäller bara sin egen tabell", async () => {
+  // Saknas gjort-tabellen skall lapparna gå upp precis som vanligt.
+  const anvandare = "prov-gjort-smittar-inte";
+  nollstallMarkor(anvandare);
+  const skickat: Record<string, Record<string, unknown>[]> = {};
+  const klient = falskKlientMedFel(
+    "gjort",
+    { message: 'relation "public.gjort" does not exist', code: "42P01" },
+    skickat
+  );
+
+  const lokal = lageMedGjort();
+  lokal.handelser = [h("h1", "Möte", NU)];
+
+  const resultat = await synka(lokal, anvandare, klient as never);
+  lika(skickat.handelser?.length, 1, "händelsen gick upp");
+  lika(resultat.data.handelser[0].synkad, true);
+  lika(resultat.data.gjort[0].synkad, false);
 });
 
 void kor();

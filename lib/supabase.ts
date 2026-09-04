@@ -68,3 +68,31 @@ export const TABELL_ANTECKNINGAR = "anteckningar";
 export const TABELL_SIDOR = "sidor";
 export const TABELL_LAPPAR = "lappar";
 export const TABELL_GJORT = "gjort";
+
+/**
+ * Varje tabell som bär innehåll, i en enda uppräkning.
+ *
+ * Finns för att det skall gå att glömma en sort på ETT ställe i stället
+ * för på fem. Synken, realtidsprenumerationen och diagnosen räknade
+ * tidigare upp tabellerna var för sig, och `lappar` och `gjort` hamnade
+ * med i den första men inte i de andra: raderna gick upp i molnet men
+ * kom aldrig ner till den andra enheten av sig själva, och diagnosen
+ * intygade samtidigt att allt stod rätt till.
+ */
+export const TABELLER = [
+  TABELL_HANDELSER,
+  TABELL_KALENDRAR,
+  TABELL_UPPGIFTER,
+  TABELL_ANTECKNINGAR,
+  TABELL_SIDOR,
+  TABELL_LAPPAR,
+  TABELL_GJORT,
+] as const;
+
+/**
+ * De tabeller vars ändringar knackar på i realtid.
+ *
+ * Samma lista. Den ligger under eget namn för att en tabell en dag kan
+ * behöva undantas — inte för att listorna får skilja sig åt av misstag.
+ */
+export const TABELLER_I_REALTID: readonly string[] = TABELLER;

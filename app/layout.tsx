@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Newsreader, Martian_Mono } from "next/font/google";
+import { Inter, Newsreader, Martian_Mono } from "next/font/google";
 import "./globals.css";
 import ButikProvider from "@/components/Butik";
 import Offline from "@/components/Offline";
@@ -20,6 +20,14 @@ const mono = Martian_Mono({
   subsets: ["latin"],
   weight: ["400", "500"],
   variable: "--font-mono",
+  display: "swap",
+});
+
+/* Det nya appskalet använder en neutral variabel sans, medan kalendern
+   och sidornas innehåll behåller Newsreader och Martian Mono. */
+const shell = Inter({
+  subsets: ["latin"],
+  variable: "--font-shell",
   display: "swap",
 });
 
@@ -50,7 +58,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#FDFBEF",
+  themeColor: "#F7F7F5",
   width: "device-width",
   initialScale: 1,
   // Zoomen lämnas påslagen med flit. Frestelsen att stänga av den är stor
@@ -71,7 +79,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="sv" className={`${display.variable} ${mono.variable}`}>
+    <html
+      lang="sv"
+      className={`${display.variable} ${mono.variable} ${shell.variable}`}
+    >
       <body>
         <ButikProvider>
           {children}

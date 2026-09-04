@@ -173,7 +173,9 @@ gissat datum hade lagt något man gjorde i mars på dagens rad.
 redan var i drift. Kör `supabase/schema.sql` (eller bara dess
 `gjort`-avsnitt) i Supabase SQL-editorn. Innan dess fungerar remsan
 lokalt: synkmotorn känner igen "den där tabellen finns inte" och tiger
-just om det, precis som för parkeringen.
+just om det, precis som för parkeringen — men den säger det numera i
+konsolen, och felsökningsrutan under statusknappen räknar upp vilka
+tabeller som saknas vid namn. Se *En tystnad som kostade en kväll*.
 
 ## Parkeringen
 
@@ -803,6 +805,47 @@ inte kan göra något är värre än ingen knapp alls.
 Vid krock vinner senaste ändringen hela posten. Borttagningar sker med
 gravstenar, så att en post inte återuppstår när en enhet som varit offline
 synkar. Utförligt i [DEPLOY.md](DEPLOY.md).
+
+### En tystnad som kostade en kväll
+
+Två sorter — parkeringens lappar och gjort-remsan — fick sina tabeller
+efter att appen redan var i drift. Synkmotorn tiger därför med flit när
+en av dem saknas: ett vanligt kast hade stoppat händelser, uppgifter och
+anteckningar också, för en funktion man kanske inte ens använder.
+
+Den tystnaden var för bred, och gjort slutade synkas utan att något
+syntes. Tre saker gick fel samtidigt, och var och en av dem hade räckt:
+
+1. **Frågan var för slapp.** Koden svarade "tabellen saknas" på ett blott
+   `does not exist`, men PostgREST säger `column gjort.datum does not
+   exist` när tabellen *finns* men har fel form, och skriver "schema
+   cache" både när en tabell och när en *kolumn* fattas. En halvkörd SQL
+   såg alltså ut precis som ingen SQL alls. Nu avgör felkoden (`42P01`,
+   `PGRST205`), och texten matchas bara på de formuleringar som verkligen
+   handlar om en tabell.
+2. **Att svälja felet lämnade inget spår.** Nu står det ett
+   `console.warn` med tabellens namn och vad man skall göra åt saken.
+3. **Diagnosen frågade bara `handelser`.** Fanns den svarade rutan
+   "tabellerna finns" — alltså det enda svar som inte hjälpte den som
+   hade problemet. Nu frågas varje tabell för sig och de som saknas
+   räknas upp vid namn.
+
+Ett fjärde fel låg bredvid: realtidsprenumerationen räknade upp fem
+tabeller i fem nästan identiska block, och `lappar` och `gjort` glömdes
+där. En rad skriven på telefonen dök då inte upp på datorn förrän nästa
+pollningsvarv — vilket ser ut precis som att den inte synkas. Både
+prenumerationen och publiceringen i `schema.sql` går nu över **en**
+uppräkning, `TABELLER` i `lib/supabase.ts`.
+
+**Kör alltid `notify pgrst, 'reload schema';` sist.** PostgREST håller en
+egen bild av schemat, och tills den läst om det svarar API:et att en
+tabell inte finns fast den bevisligen gör det. Raden ligger nu sist i
+`schema.sql`.
+
+Sensmoralen är enkel nog att vara värd en rubrik: **ett fel man sväljer
+måste sväljas snävt och höras ändå.** En sort som lades till på fem
+ställen glöms förr eller senare på ett av dem, och då skall det synas —
+inte i innehållet, som ser normalt ut, utan där man letar.
 
 ## Tangentbord
 

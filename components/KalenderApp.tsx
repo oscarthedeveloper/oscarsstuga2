@@ -821,22 +821,25 @@ export default function KalenderApp() {
      --------------------------------------------------------------- */
   return (
     <main
-      className="viewport-lock appram"
+      className="viewport-lock appram oscar-shell"
       /* Bottenraden är två våningar på kalendersidan och en på de andra.
          Kvittot måste lägga sig ovanför den, och kan inte gissa. */
       style={{
         ["--bottenrad" as string]: sida === "kalender" ? "74px" : "42px",
       }}
     >
-      <div className="border border-ink flex flex-col h-[calc(100dvh-2.4vw)] min-h-[420px] overflow-hidden bg-paper">
+      <div className="oscar-frame">
         {/* Säger rakt ut när ingenting synkas. Två tysta lägen — bygge
             utan nycklar, och enhet utan inloggning — ser annars ut precis
             som en fungerande kalender. */}
         <MolnRemsa onOppna={() => setKonto(true)} />
 
         {/* Navigering */}
-        <nav className="h-[50px] md:h-[52px] shrink-0 bg-azure border-b border-ink flex items-center justify-between px-2 md:px-3 gap-2 md:gap-3">
-          <div className="flex items-center gap-2 md:gap-3 min-w-0">
+        <nav className="oscar-topnav h-[58px] md:h-[64px] shrink-0 border-b border-ink flex items-center justify-between px-2 md:px-3 gap-2 md:gap-3">
+          <div
+            className="oscar-nav-identitet flex items-center gap-2 md:gap-3 min-w-0"
+            data-sidlage={sida === "kalender" ? undefined : "1"}
+          >
             {/* På mobilen ersätter lådknappen märket: sidopanelen får
                 inte ta plats från kalendern, men måste vara nåbar. */}
             <button
@@ -847,7 +850,7 @@ export default function KalenderApp() {
             >
               ☰
             </button>
-            <span className="hidden lg:flex items-center gap-2 shrink-0">
+            <span className="oscar-brand hidden lg:flex items-center gap-2 shrink-0">
               <Marke />
               <span className="display text-ink text-[1.25rem] leading-none">
                 Oscars databas

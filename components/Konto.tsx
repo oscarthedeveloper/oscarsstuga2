@@ -104,7 +104,7 @@ export function MolnRemsa({ onOppna }: { onOppna(): void }) {
   const utanNycklar = !molnetFinns;
 
   return (
-    <div className="shrink-0 border-b border-ink bg-accent text-ink px-3 py-1.5 flex items-center gap-2 flex-wrap">
+    <div className="molnremsa shrink-0 border-b border-ink text-ink px-3 py-1.5 flex items-center gap-2 flex-wrap">
       <span className="micro">
         {utanNycklar
           ? "Molnet är inte inkopplat i det här bygget"
@@ -457,6 +457,16 @@ export default function KontoPanel({ onStang }: { onStang(): void }) {
                     }
                     bra={diagnos.tabeller === "ok"}
                   />
+                  {/* Vid namn, inte som ett antal. "2 saknas" tvingar en
+                      att gissa vilka; namnen säger direkt vilket avsnitt
+                      av schema.sql som inte körts. */}
+                  {diagnos.saknadeTabeller.length > 0 && (
+                    <Rad
+                      namn="Saknade tabeller"
+                      varde={diagnos.saknadeTabeller.join(", ")}
+                      bra={false}
+                    />
+                  )}
                   <Rad
                     namn="Skrivning"
                     varde={

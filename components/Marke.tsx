@@ -1,35 +1,19 @@
-/**
- * Geometriskt märke — en urtavla ritad med samma streckvokabulär som
- * märket på Fornsvenska: rena linjer, ingen fyllning utom visarna, och
- * fyra markeringar i kvartsläge så figuren läses som en klocka även i
- * 24 pixlar.
- */
+/** Ett eget femdelat databas-märke i det nya skalets pastellpalett. */
 export default function Marke() {
   return (
     <svg
-      width="24"
-      height="24"
-      viewBox="0 0 26 26"
+      width="28"
+      height="28"
+      viewBox="0 0 28 28"
       aria-hidden="true"
       focusable="false"
-      className="shrink-0"
+      className="shrink-0 oscar-marke"
     >
-      <rect
-        x="1"
-        y="1"
-        width="24"
-        height="24"
-        fill="none"
-        stroke="var(--ink)"
-        strokeWidth="1"
-      />
-      <polygon points="13,2.5 15.2,7 10.8,7" fill="var(--ink)" />
-      <rect x="12.6" y="12.6" width="0.9" height="0.9" fill="var(--ink)" />
-      <line x1="13" y1="13" x2="13" y2="6" stroke="var(--ink)" strokeWidth="1.4" />
-      <line x1="13" y1="13" x2="18.5" y2="15.5" stroke="var(--ink)" strokeWidth="1.4" />
-      <line x1="1" y1="13" x2="4" y2="13" stroke="var(--ink)" strokeWidth="1" />
-      <line x1="22" y1="13" x2="25" y2="13" stroke="var(--ink)" strokeWidth="1" />
-      <line x1="13" y1="22" x2="13" y2="25" stroke="var(--ink)" strokeWidth="1" />
+      <rect x="1" y="1" width="13" height="9" rx="4.5" fill="var(--shell-coral)" />
+      <rect x="14" y="1" width="13" height="9" rx="4.5" fill="var(--shell-lilac)" />
+      <rect x="1" y="10" width="13" height="9" rx="4.5" fill="var(--shell-lime)" />
+      <circle cx="20.5" cy="14.5" r="4.5" fill="var(--shell-magenta)" />
+      <rect x="1" y="19" width="13" height="8" rx="4" fill="#000" />
     </svg>
   );
 }

@@ -15,7 +15,7 @@ export default function ColophonStrip({
 }) {
   const sidor = Boolean(left || right);
   return (
-    <div className="h-[26px] shrink-0 bg-ink text-paper flex items-center px-3">
+    <div className="oscar-marquee h-[26px] shrink-0 bg-ink text-paper flex items-center px-3">
       <span className="pico mx-auto md:hidden">{centre}</span>
       {sidor ? (
         <div className="hidden md:grid w-full grid-cols-[1fr_auto_1fr] items-center gap-4">

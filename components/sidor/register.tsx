@@ -17,6 +17,7 @@
 import type { ComponentType } from "react";
 import type { SidData, Sida } from "@/lib/typer";
 import Hogskoleprov from "./Hogskoleprov";
+import Litteratur from "./Litteratur";
 import Privatekonomi from "./Privatekonomi";
 import Viner from "./Viner";
 
@@ -51,6 +52,14 @@ export const SIDOR: SidDefinition[] = [
     beskrivning:
       "Samling och smakminne — källare, smakprofiler, betyg och diagram",
     Komponent: Viner,
+  },
+  {
+    id: "litteratur",
+    titel: "Mitt litteraturbibliotek",
+    kort: "BOK",
+    beskrivning:
+      "Skönlitteratur, klassiker och fakta — läslogg, lästa böcker och sådant du vill köpa",
+    Komponent: Litteratur,
   },
   {
     id: "privatekonomi",

@@ -22,7 +22,7 @@
    * textfärgen med full täckning i stället — ett fel som syns som att
    * hårstrecken plötsligt är svarta.
    */
-  --paper-kanal: 253 251 239;
+  --paper-kanal: 247 247 245;
   --panel-kanal: 255 255 255;
   --ink-kanal: 17 17 17;
   --accent-kanal: 255 92 57;
@@ -3265,5 +3265,517 @@ input.dokdeck:focus {
   .heldag-block[data-armerad="1"] {
     box-shadow: 0 0 0 2px var(--accent), 0 10px 22px rgb(17 17 17 / 0.3);
     transform: scale(1.015);
+  }
+}
+
+/* ==================================================================
+   LITTERATURBIBLIOTEKET
+
+   Hyllmotivet kommer från Fornsvenskas resursbibliotek. Sidan håller
+   ändå fast vid databasens tunna streck och typografiska standardomslag,
+   så den hör ihop med Viner och Privatekonomi i stället för att kännas
+   inbäddad från en annan webbplats.
+   ================================================================== */
+.litt-sida {
+  background: var(--paper);
+}
+
+.litt-matare {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+}
+
+.litt-verktyg {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1.2rem;
+  padding: 1.1rem 1rem 0.75rem;
+}
+
+.litt-sok {
+  width: min(26rem, 46vw);
+}
+
+.litt-filter {
+  display: flex;
+  gap: 0.45rem;
+  overflow-x: auto;
+  padding: 0 1rem 0.9rem;
+  scrollbar-width: none;
+}
+
+.litt-filter::-webkit-scrollbar {
+  display: none;
+}
+
+.litt-chip {
+  flex: 0 0 auto;
+  border: 1px solid var(--ink);
+  background: var(--panel);
+  padding: 0.38rem 0.7rem;
+  font-size: 0.57rem;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+}
+
+.litt-chip[data-vald="1"] {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.litt-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 310px;
+  align-items: start;
+  gap: 1rem;
+  padding: 0 1rem 1.2rem;
+  max-width: 1420px;
+}
+
+.litt-hylla {
+  min-width: 0;
+}
+
+.litt-hylla > header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.65rem;
+  margin-bottom: 0.45rem;
+}
+
+.litt-hylla > header h3 {
+  font-size: 1.08rem;
+  line-height: 1;
+}
+
+.litt-hyllplan {
+  position: relative;
+  padding: 0.25rem 0.15rem 0.85rem;
+  border-bottom: 2px solid var(--ink);
+}
+
+.litt-hyllplan::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgb(var(--ink-kanal) / 0.13);
+}
+
+.litt-hyllrad {
+  display: flex;
+  gap: 0.8rem;
+  overflow-x: auto;
+  padding: 0.15rem 0.15rem 0.35rem;
+  scroll-snap-type: x proximity;
+}
+
+.litt-bokkort {
+  flex: 0 0 112px;
+  width: 112px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  text-align: left;
+  scroll-snap-align: start;
+}
+
+.litt-bokkort:hover .litt-omslag {
+  transform: translateY(-3px);
+}
+
+.litt-bokkort[data-vald="1"] .litt-omslag {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.litt-omslag {
+  display: block;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  border: 1px solid var(--ink);
+  background: var(--panel);
+  box-shadow: 3px 3px 0 rgb(var(--ink-kanal) / 0.1);
+  transition: transform 140ms ease;
+}
+
+.litt-omslag[data-stort="1"] {
+  width: 92px;
+}
+
+.litt-omslag img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.litt-standardomslag {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.4rem;
+  padding: 0.5rem 0.42rem 0.42rem 0.5rem;
+  border-left-width: 5px;
+  background: var(--kal-1);
+}
+
+.litt-standardomslag[data-ton="1"] { background: var(--kal-2); }
+.litt-standardomslag[data-ton="2"] { background: var(--kal-3); }
+.litt-standardomslag[data-ton="3"] { background: var(--kal-4); }
+.litt-standardomslag[data-ton="4"] { background: var(--kal-5); }
+.litt-standardomslag[data-ton="5"] { background: var(--kal-6); }
+
+.litt-standardomslag .pico {
+  opacity: 0.52;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.litt-standardtitel {
+  font-size: 0.76rem;
+  line-height: 1.18;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.litt-boktitel {
+  font-size: 0.67rem;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.litt-bokfot {
+  font-size: 0.52rem;
+  line-height: 1.35;
+  letter-spacing: 0.03em;
+  opacity: 0.52;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.litt-framsteg {
+  display: block;
+  height: 4px;
+  border: 1px solid var(--ink);
+  background: var(--panel);
+}
+
+.litt-framsteg.stor {
+  height: 7px;
+}
+
+.litt-framsteg > span {
+  display: block;
+  height: 100%;
+  background: var(--ink);
+}
+
+.litt-panelhallare {
+  position: sticky;
+  top: 5.2rem;
+}
+
+.litt-panel {
+  border: 1px solid var(--ink);
+  background: var(--panel);
+  padding: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  min-width: 0;
+}
+
+.litt-pastellblock {
+  padding: 1.1rem;
+  border-radius: 18px;
+  background: #c5b0f4;
+}
+
+.litt-fakta {
+  border-top: 1px solid rgb(var(--ink-kanal) / 0.16);
+}
+
+.litt-fakta > div {
+  display: grid;
+  grid-template-columns: 6rem minmax(0, 1fr);
+  gap: 0.5rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid rgb(var(--ink-kanal) / 0.16);
+}
+
+.litt-fakta dt {
+  font-size: 0.52rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  opacity: 0.5;
+}
+
+.litt-fakta dd {
+  font-size: 0.67rem;
+}
+
+.litt-tomt {
+  min-height: 220px;
+  border-radius: 22px;
+  background: #dceeb1;
+  padding: clamp(1.4rem, 5vw, 3rem);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.8rem;
+}
+
+.litt-loggny,
+.litt-loggrad {
+  display: grid;
+  grid-template-columns: minmax(125px, 1fr) 140px 80px 80px minmax(130px, 1fr) auto;
+  gap: 0.45rem;
+  align-items: end;
+  padding: 0.65rem;
+}
+
+.litt-loggny {
+  background: rgb(var(--ink-kanal) / 0.035);
+  border-bottom: 1px solid rgb(var(--ink-kanal) / 0.15);
+}
+
+.litt-logglista {
+  display: flex;
+  flex-direction: column;
+}
+
+.litt-loggrad + .litt-loggrad {
+  border-top: 1px solid rgb(var(--ink-kanal) / 0.12);
+}
+
+.litt-loggrad label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+}
+
+@media (max-width: 1080px) {
+  .litt-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .litt-panelhallare {
+    position: static;
+    grid-row: 1;
+  }
+}
+
+@media (max-width: 767px) {
+  .litt-matare {
+    position: static;
+  }
+
+  .litt-verktyg {
+    align-items: stretch;
+    flex-direction: column;
+    padding-inline: 0.7rem;
+  }
+
+  .litt-sok {
+    width: 100%;
+  }
+
+  .litt-filter {
+    padding-inline: 0.7rem;
+  }
+
+  .litt-layout {
+    padding-inline: 0.7rem;
+  }
+
+  .litt-bokkort {
+    flex-basis: 102px;
+    width: 102px;
+  }
+
+  .litt-loggny,
+  .litt-loggrad {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .litt-loggny > :first-child,
+  .litt-loggrad > :nth-child(2),
+  .litt-loggny > :nth-child(5),
+  .litt-loggrad > :nth-child(5) {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ==================================================================
+   FIGMA-INSPIRERAT APPSKAL
+
+   Detta är medvetet avgränsat till skalet. Kalenderns rutnät, Annats
+   sidkomponenter och redigeringspanelerna behåller sin äldre grammatik.
+   ================================================================== */
+:root {
+  --shell-canvas: #ffffff;
+  --shell-soft: #f7f7f5;
+  --shell-hairline: #e6e6e6;
+  --shell-lime: #dceeb1;
+  --shell-lilac: #c5b0f4;
+  --shell-coral: #f3c9b6;
+  --shell-magenta: #ff3d8b;
+}
+
+.oscar-shell {
+  background: var(--shell-canvas);
+  font-family: var(--font-shell), Inter, system-ui, -apple-system, sans-serif;
+}
+
+.oscar-frame {
+  height: calc(100dvh - 2.4vw);
+  min-height: 420px;
+  overflow: hidden;
+  border: 1px solid var(--shell-hairline);
+  border-radius: 22px;
+  background: var(--paper);
+  display: flex;
+  flex-direction: column;
+}
+
+.oscar-topnav {
+  background: var(--shell-canvas);
+  border-bottom-color: var(--shell-hairline);
+  font-family: var(--font-shell), Inter, system-ui, sans-serif;
+}
+
+.oscar-topnav .display {
+  font-family: var(--font-shell), Inter, system-ui, sans-serif;
+  font-weight: 540;
+  letter-spacing: -0.025em;
+}
+
+/* Vanliga sidor har en rubrik i två rader. På bred skärm ska den börja
+   på samma höjd som databasens namn, inte centreras som ett enda block. */
+@media (min-width: 1024px) {
+  .oscar-nav-identitet[data-sidlage="1"] {
+    align-items: flex-start;
+  }
+
+  .oscar-nav-identitet[data-sidlage="1"] .oscar-brand {
+    align-items: flex-start;
+  }
+}
+
+.oscar-topnav .micro,
+.oscar-topnav .pico {
+  font-family: var(--font-shell), Inter, system-ui, sans-serif;
+  text-transform: none;
+  letter-spacing: -0.01em;
+  font-weight: 480;
+}
+
+.oscar-topnav .knapp {
+  min-height: 34px;
+  border-color: transparent;
+  border-radius: 9999px;
+  background: var(--shell-soft);
+  padding-inline: 0.78rem;
+}
+
+.oscar-topnav .knapp:hover {
+  background: var(--shell-lime);
+}
+
+.oscar-topnav .knapp[data-aktiv="1"] {
+  background: #000;
+  color: #fff;
+}
+
+.oscar-topnav .knapp[data-ton="accent"] {
+  background: var(--shell-magenta);
+  color: #fff;
+}
+
+.oscar-topnav .knapp-rad {
+  gap: 3px;
+  padding: 3px;
+  border-radius: 9999px;
+  background: var(--shell-soft);
+}
+
+.oscar-topnav .knapp-rad > .knapp + .knapp {
+  margin-left: 0;
+}
+
+.oscar-marke {
+  border-radius: 8px;
+}
+
+.molnremsa {
+  background: var(--shell-coral);
+  border-bottom-color: var(--shell-hairline);
+  font-family: var(--font-shell), Inter, system-ui, sans-serif;
+}
+
+.molnremsa .knapp {
+  border: 0;
+  border-radius: 9999px;
+  background: #000;
+  color: #fff;
+}
+
+.oscar-marquee {
+  font-family: var(--font-shell), Inter, system-ui, sans-serif;
+}
+
+.oscar-marquee .pico {
+  letter-spacing: 0.06em;
+}
+
+.bottenrad {
+  background: var(--shell-canvas);
+  border-top-color: var(--shell-hairline);
+  font-family: var(--font-shell), Inter, system-ui, sans-serif;
+  padding: 4px;
+  gap: 3px;
+}
+
+.bottenrad > div {
+  gap: 3px;
+}
+
+.bottenrad .knapp {
+  border: 0 !important;
+  border-radius: 9999px;
+  background: var(--shell-soft);
+}
+
+.bottenrad .knapp[data-aktiv="1"] {
+  background: #000;
+  color: #fff;
+}
+
+.bottenrad .knapp[data-ton="accent"] {
+  background: var(--shell-magenta);
+  color: #fff;
+}
+
+@media (max-width: 900px) {
+  .oscar-frame {
+    height: 100%;
+    min-height: 0;
+    border: 0;
+    border-radius: 0;
   }
 }

@@ -64,7 +64,11 @@ import { addDagar, dygnMellan, nyckel, stampel, tolka } from "@/lib/tid";
 import { tolkaFangst, type Sort } from "@/lib/tolka";
 import { lappUtkast } from "@/lib/lappar";
 import type { Session } from "@supabase/supabase-js";
-import { MOLNET_FINNS, hamtaKlient } from "@/lib/supabase";
+import {
+  MOLNET_FINNS,
+  TABELLER_I_REALTID,
+  hamtaKlient,
+} from "@/lib/supabase";
 import {
   antalIvag,
   diagnostisera,
@@ -1049,59 +1053,27 @@ export default function ButikProvider({
       timer = window.setTimeout(() => void synkaNu(), 400);
     };
 
-    const kanal = klient
-      .channel(`kalendariet-${anvandare}`)
-      .on(
+    /* Tabellerna räknas upp EN gång, inte som ett `.on()` per sort.
+       Kedjan av sex nästan identiska block var lätt att glömma en post
+       i, och det var precis vad som hände: `lappar` och `gjort` lades
+       till som sorter men aldrig här. Följden syntes bara mellan två
+       enheter — en rad man skrev på telefonen dök inte upp på datorn
+       förrän nästa pollningsvarv, vilket ser ut som att den inte
+       synkas alls. */
+    const kanal = klient.channel(`kalendariet-${anvandare}`);
+    for (const tabell of TABELLER_I_REALTID) {
+      kanal.on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
-          table: "handelser",
+          table: tabell,
           filter: `agare=eq.${anvandare}`,
         },
         knuff
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "kalendrar",
-          filter: `agare=eq.${anvandare}`,
-        },
-        knuff
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "uppgifter",
-          filter: `agare=eq.${anvandare}`,
-        },
-        knuff
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "anteckningar",
-          filter: `agare=eq.${anvandare}`,
-        },
-        knuff
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "sidor",
-          filter: `agare=eq.${anvandare}`,
-        },
-        knuff
-      )
-      .subscribe();
+      );
+    }
+    kanal.subscribe();
 
     return () => {
       if (timer) window.clearTimeout(timer);
