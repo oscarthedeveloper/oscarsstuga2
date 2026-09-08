@@ -116,10 +116,19 @@ prov("dagsvyn ritar en kolumn", () => {
       onOppna: tomt,
       onFlytta: tomt,
       onSkapa: tomt,
+      tankPa: [],
+      kalendrar: STANDARDKALENDRAR,
+      onLaggTankPa: tomt,
+      onAndraTankPa: tomt,
+      onTaBortTankPa: tomt,
     })
   );
   innehaller(html, "Handskriftsseminarium");
   innehaller(html, "23:00");
+  innehaller(html, "Tänk på");
+  if (html.includes(">Gjort<")) {
+    throw new Error("den borttagna Gjort-remsan finns kvar i gränssnittet");
+  }
 });
 
 prov("tredagarsvyn ritar tre kolumner", () => {
@@ -337,14 +346,16 @@ prov("paletten listar kommandon och tolkar datum", () => {
   innehaller(html, "Skriv för att fånga");
 });
 
-prov("anteckningsvyn ritar lista och tomt läge", () => {
+prov("anteckningsvyn ritar bibliotek och tomt läge", () => {
   const html = renderToStaticMarkup(
     h(ButikProvider, null, h(Anteckningar, { onOppnaMal: tomt }))
   );
   innehaller(html, "Sök i anteckningar");
-  for (const k of STANDARDKALENDRAR) innehaller(html, k.namn);
-  // Tomt lager: anvisningen skall stå där, inte en tom yta.
-  innehaller(html, "Inga anteckningar");
+  innehaller(html, "Anteckningsböcker");
+  innehaller(html, "Ny bok");
+  // Tomt lager: biblioteket förklarar hur den första mappen skapas.
+  innehaller(html, "Biblioteket är tomt");
+  innehaller(html, "Italienska, Svenska eller Arbete");
 });
 
 prov("annat-avdelningen ritar listan och första sidan", () => {

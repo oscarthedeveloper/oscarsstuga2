@@ -173,6 +173,10 @@ export interface Anteckning extends Synkbar {
   titel: string;
   /** Fri text. Får innehålla [[haklänkar]] till andra poster. */
   brodtext: string;
+  /** Den bok/mapp som dokumentet står i i anteckningsbiblioteket. */
+  bok: string;
+  /** Dokumentets redigerbara innehåll, uppdelat i flyttbara block. */
+  block: Anteckningsblock[];
   kalenderId: string;
   /** Datumnyckel YYYY-MM-DD om anteckningen hör till en dag, annars null. */
   datum: string | null;
@@ -180,6 +184,20 @@ export interface Anteckning extends Synkbar {
   nalad: boolean;
   skapad: string;
 }
+
+/**
+ * Innehållsblock i en anteckning.
+ *
+ * Textfälten innehåller en mycket liten, sanerad delmängd HTML. Det gör
+ * att fet, kursiv och överstruken text kan redigeras där den står utan
+ * att anteckningen blir beroende av en extern ordbehandlare.
+ */
+export type Anteckningsblock =
+  | { id: string; typ: "rubrik"; text: string; niva: 2 | 3 }
+  | { id: string; typ: "text"; text: string }
+  | { id: string; typ: "citat"; text: string }
+  | { id: string; typ: "spalter"; vanster: string; hoger: string }
+  | { id: string; typ: "tabell"; celler: string[][] };
 
 /**
  * En lapp i parkeringen — det som skall in i kalendern men ännu inte

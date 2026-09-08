@@ -217,10 +217,29 @@ export function normaliseraUppgift(u: Partial<Uppgift>): Uppgift {
 }
 
 export function normaliseraAnteckning(a: Partial<Anteckning>): Anteckning {
+  const gamlaBlock = Array.isArray(a.block) ? a.block : [];
+  const block = gamlaBlock
+    .map((varde, index) =>
+      normaliseraAnteckningsblock(varde, a.id ?? "anteckning", index)
+    )
+    .filter((b): b is Anteckning["block"][number] => b !== null);
+  if (block.length === 0 && (a.brodtext ?? "").trim()) {
+    block.push({
+      id: `${a.id ?? "anteckning"}-text`,
+      typ: "text",
+      text: (a.brodtext ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\n/g, "<br>"),
+    });
+  }
   return {
     id: a.id ?? nyId(),
     titel: a.titel ?? "",
     brodtext: a.brodtext ?? "",
+    bok: (a.bok ?? "Allmänna anteckningar").trim() || "Allmänna anteckningar",
+    block,
     kalenderId: a.kalenderId ?? "arbete",
     // Tom sträng och null betyder samma sak — ingen dag — och måste
     // lagras likadant, annars ser två identiska anteckningar olika ut
@@ -232,6 +251,51 @@ export function normaliseraAnteckning(a: Partial<Anteckning>): Anteckning {
     raderad: a.raderad ?? null,
     synkad: a.synkad ?? false,
   };
+}
+
+function normaliseraAnteckningsblock(
+  varde: unknown,
+  anteckningId: string,
+  index: number
+): Anteckning["block"][number] | null {
+  if (!varde || typeof varde !== "object" || Array.isArray(varde)) return null;
+  const b = varde as Record<string, unknown>;
+  const id =
+    typeof b.id === "string" && b.id
+      ? b.id
+      : `${anteckningId}-block-${index}`;
+  if (b.typ === "rubrik") {
+    return {
+      id,
+      typ: "rubrik",
+      text: typeof b.text === "string" ? b.text : "",
+      niva: b.niva === 3 ? 3 : 2,
+    };
+  }
+  if (b.typ === "text" || b.typ === "citat") {
+    return { id, typ: b.typ, text: typeof b.text === "string" ? b.text : "" };
+  }
+  if (b.typ === "spalter") {
+    return {
+      id,
+      typ: "spalter",
+      vanster: typeof b.vanster === "string" ? b.vanster : "",
+      hoger: typeof b.hoger === "string" ? b.hoger : "",
+    };
+  }
+  if (b.typ === "tabell") {
+    const celler = Array.isArray(b.celler)
+      ? b.celler
+          .filter(Array.isArray)
+          .map((rad) => rad.map((cell) => (typeof cell === "string" ? cell : "")))
+      : [];
+    return {
+      id,
+      typ: "tabell",
+      celler: celler.length > 0 ? celler : [["Rubrik", "Rubrik"], ["", ""]],
+    };
+  }
+  return null;
 }
 
 export function normaliseraLapp(l: Partial<Lapp>): Lapp {

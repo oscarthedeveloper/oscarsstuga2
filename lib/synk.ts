@@ -426,6 +426,8 @@ interface AnteckningRad {
   id: string;
   titel: string;
   brodtext: string;
+  bok?: string;
+  block?: Anteckning["block"];
   kalender_id: string;
   datum: string | null;
   nalad: boolean;
@@ -441,6 +443,8 @@ function anteckningTillRad(a: Anteckning, agare: string): AnteckningRad {
     id: a.id,
     titel: a.titel,
     brodtext: a.brodtext,
+    bok: a.bok,
+    block: a.block,
     kalender_id: a.kalenderId,
     datum: a.datum,
     nalad: a.nalad,
@@ -455,6 +459,8 @@ function anteckningFranRad(r: AnteckningRad): Anteckning {
     id: r.id,
     titel: r.titel ?? "",
     brodtext: r.brodtext ?? "",
+    bok: r.bok ?? "Allmänna anteckningar",
+    block: r.block ?? [],
     kalenderId: r.kalender_id,
     datum: r.datum ?? null,
     nalad: !!r.nalad,

@@ -11,7 +11,8 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Forekomst, Gjort, Handelse, Lapp, Vy } from "@/lib/typer";
+import type { Forekomst, Handelse, Lapp, Vy } from "@/lib/typer";
+import { TANK_PA_SIDA, tankPaData, tolkaTankPa, type TankPa } from "@/lib/tank-pa";
 import { slapptid, type Slappmal, type Slappning } from "@/lib/lappar";
 import { VYER } from "@/lib/typer";
 import { useButik } from "./Butik";
@@ -458,32 +459,40 @@ export default function KalenderApp() {
     [butik]
   );
 
-  /**
-   * En rad i gjort-remsan.
-   *
-   * Kalendern väljs inte vid inmatningen — man skriver "Sprungit" och
-   * vill inte peka i en rullgardin först. Raden får den kalender den
-   * senast fick, och går att flytta efteråt genom att klicka på den.
-   * Vid första raden finns ingen sådan; då blir det den första
-   * kalendern, samma förval som en ny händelse får.
-   */
-  const senasteGjortKalender = useRef<string | null>(null);
-
-  const laggGjort = useCallback(
-    (datum: string, text: string) => {
-      const kalenderId =
-        senasteGjortKalender.current ?? butik.kalendrar[0]?.id ?? "arbete";
-      butik.skapaGjort({ datum, text, kalenderId });
-    },
+  const tankPa = useMemo(
+    () => tolkaTankPa(butik.sidaMed(TANK_PA_SIDA)?.data),
     [butik]
   );
+  const senasteTankPaKalender = useRef<string | null>(null);
 
-  const andraGjort = useCallback(
-    (g: Gjort) => {
-      senasteGjortKalender.current = g.kalenderId;
-      butik.sparaGjort(g);
+  const laggTankPa = useCallback(
+    (datum: string, text: string) => {
+      const kalenderId =
+        senasteTankPaKalender.current ?? butik.kalendrar[0]?.id ?? "arbete";
+      const id = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
+      butik.sparaSida(
+        TANK_PA_SIDA,
+        tankPaData([...tankPa, { id, datum, text, kalenderId, skapad: new Date().toISOString() }])
+      );
     },
-    [butik]
+    [butik, tankPa]
+  );
+
+  const andraTankPa = useCallback(
+    (rad: TankPa) => {
+      senasteTankPaKalender.current = rad.kalenderId;
+      butik.sparaSida(
+        TANK_PA_SIDA,
+        tankPaData(tankPa.map((v) => (v.id === rad.id ? rad : v)))
+      );
+    },
+    [butik, tankPa]
+  );
+
+  const taBortTankPa = useCallback(
+    (id: string) =>
+      butik.sparaSida(TANK_PA_SIDA, tankPaData(tankPa.filter((rad) => rad.id !== id))),
+    [butik, tankPa]
   );
 
   const flytta = useCallback(
@@ -1137,11 +1146,11 @@ export default function KalenderApp() {
                 onFlytta={flytta}
                 onSkapa={(s, e, heldag) => nyHandelse(s, e, heldag)}
                 slapper={slapper}
-                gjort={butik.gjort}
+                tankPa={tankPa}
                 kalendrar={butik.kalendrar}
-                onLaggGjort={laggGjort}
-                onAndraGjort={andraGjort}
-                onTaBortGjort={butik.taBortGjort}
+                onLaggTankPa={laggTankPa}
+                onAndraTankPa={andraTankPa}
+                onTaBortTankPa={taBortTankPa}
               />
             )}
             </>
@@ -1268,7 +1277,7 @@ export default function KalenderApp() {
                 : sida === "attgora"
                   ? "⌘K fånga & sök — N nytt — klicka en rad för att redigera"
                   : sida === "anteckningar"
-                    ? "⌘K fånga & sök — N ny — [[titel]] länkar till annat"
+                    ? "N ny — bygg med text, rubrik, tvåspalt, tabell och citat"
                     : "⌘K fånga & sök — sidorna sparas medan du skriver"
             }
           />

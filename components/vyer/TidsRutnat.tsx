@@ -22,8 +22,9 @@ import {
   useRef,
   useState,
 } from "react";
-import type { Forekomst, Gjort, Kalender, Layout } from "@/lib/typer";
-import GjortRemsa from "./GjortRemsa";
+import type { Forekomst, Kalender, Layout } from "@/lib/typer";
+import type { TankPa } from "@/lib/tank-pa";
+import TankPaRemsa from "./TankPaRemsa";
 import { klamMinuter, type Slappning } from "@/lib/lappar";
 import { useMobil } from "@/lib/anvandMedia";
 import { laggUt, laggUtBand, type Packbar } from "@/lib/layout";
@@ -81,18 +82,12 @@ export interface RutnatProps {
    * lappen skulle landa; sidopanelen sköter själva draget.
    */
   slapper?: Slappning | null;
-  /**
-   * Dagens gjorda, i en egen remsa under heldagsfältet.
-   *
-   * Utelämnas remsan ritas den inte. Rutnätet används också på ställen
-   * där den inte hör hemma, och en tom remsa som alltid står där hade
-   * tagit höjd från dygnet utan att säga något.
-   */
-  gjort?: Gjort[];
+  /** Korta påminnelser som hör till dagen men inte till ett klockslag. */
+  tankPa?: TankPa[];
   kalendrar?: Kalender[];
-  onLaggGjort?(datum: string, text: string): void;
-  onAndraGjort?(g: Gjort): void;
-  onTaBortGjort?(id: string): void;
+  onLaggTankPa?(datum: string, text: string): void;
+  onAndraTankPa?(rad: TankPa): void;
+  onTaBortTankPa?(id: string): void;
 }
 
 interface Segment extends Packbar {
@@ -140,11 +135,11 @@ export default function TidsRutnat({
   onSkapa,
   visaVecka,
   slapper = null,
-  gjort,
+  tankPa,
   kalendrar = [],
-  onLaggGjort,
-  onAndraGjort,
-  onTaBortGjort,
+  onLaggTankPa,
+  onAndraTankPa,
+  onTaBortTankPa,
 }: RutnatProps) {
   const rutnatRef = useRef<HTMLDivElement | null>(null);
   const skrollRef = useRef<HTMLDivElement | null>(null);
@@ -669,19 +664,16 @@ export default function TidsRutnat({
         </div>
       </div>
 
-      {/* Gjort-remsan. Under heldagen, för det är dit blicken går när
-          man för in dagens saker på kvällen — och ovanför det rullande
-          rutnätet, för den hör till dagen som helhet och inte till något
-          klockslag. Den rullar inte med: det man gjort skall stå kvar i
-          synfältet medan man bläddrar i timmarna. */}
-      {gjort && onLaggGjort && onAndraGjort && onTaBortGjort && (
-        <GjortRemsa
+      {/* Tänk på ligger mellan heldagen och timmarna: det hör till dagen
+          som helhet, men upptar ingen bestämd tid. */}
+      {tankPa && onLaggTankPa && onAndraTankPa && onTaBortTankPa && (
+        <TankPaRemsa
           dagar={dagar}
-          gjort={gjort}
+          rader={tankPa}
           kalendrar={kalendrar}
-          onLagg={onLaggGjort}
-          onAndra={onAndraGjort}
-          onTaBort={onTaBortGjort}
+          onLagg={onLaggTankPa}
+          onAndra={onAndraTankPa}
+          onTaBort={onTaBortTankPa}
         />
       )}
 

@@ -172,6 +172,8 @@ create table if not exists public.anteckningar (
   id           text        not null,
   titel        text        not null default '',
   brodtext     text        not null default '',
+  bok          text        not null default 'Allmänna anteckningar',
+  block        jsonb       not null default '[]'::jsonb,
   kalender_id  text        not null,
   datum        date,
   nalad        boolean     not null default false,
@@ -181,6 +183,13 @@ create table if not exists public.anteckningar (
   synk_vid     timestamptz not null default now(),
   primary key (agare, id)
 );
+
+-- Äldre installationer får dokumentblock och bokmappar utan att någon
+-- befintlig anteckning behöver skrivas om eller tas bort.
+alter table public.anteckningar
+  add column if not exists bok text not null default 'Allmänna anteckningar';
+alter table public.anteckningar
+  add column if not exists block jsonb not null default '[]'::jsonb;
 
 drop trigger if exists synk_vid_anteckningar on public.anteckningar;
 create trigger synk_vid_anteckningar
