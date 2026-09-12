@@ -131,7 +131,7 @@ export default function AttGora({
   };
 
   return (
-    <div className="h-full min-h-0 flex flex-col">
+    <div className="attgora-sida h-full min-h-0 flex flex-col">
       {/* Inmatning — alltid överst, alltid samma tre val. */}
       <div className="shrink-0 border-b border-ink p-2.5 flex flex-col gap-2 bg-paper">
         <div className="flex gap-2">
@@ -272,6 +272,10 @@ export default function AttGora({
             onSkapaLank={onSkapaLank}
           />
         ))}
+        <figure className="attgora-tavla" aria-hidden="true">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/stamning/laokoon.jpg" alt="" />
+        </figure>
       </div>
 
       {/* Sammanfattning — den enda siffran som betyder något. */}

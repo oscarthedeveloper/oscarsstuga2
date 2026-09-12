@@ -86,6 +86,10 @@ export default function Annat({
                 </span>
               </button>
             ))}
+            <figure className="annat-tavla" aria-hidden="true">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/stamning/havsgud.jpg" alt="" />
+            </figure>
           </div>
           <div className="shrink-0 border-t border-ink px-2.5 py-1.5">
             <span className="pico opacity-45 leading-relaxed">

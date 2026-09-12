@@ -22,9 +22,11 @@ import {
   kategoriNamn,
   lasningPaDag,
   omslagston,
+  registreraLaspass,
   sorteraLaspass,
   statusNamn,
   summeraLasning,
+  taBortLaspass,
   tolkaLitteraturData,
   type Bok,
   type BokKategori,
@@ -121,6 +123,10 @@ function BokPanel({
             Det du läser, har läst och vill hitta härnäst—samlat på samma hylla.
           </p>
         </div>
+        <figure className="litt-tavla" aria-hidden="true">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/stamning/bagyttar.jpg" alt="" />
+        </figure>
       </aside>
     );
   }
@@ -343,8 +349,12 @@ export default function Litteratur({ sida, spara }: { sida: Sida | null; spara(d
       setPassfel("Skriv hur många sidor eller minuter du läste.");
       return;
     }
-    const pass: Laspass = { id: nyId(), datum: nyttPass.datum, bokId, sidor, minuter, anteckning: nyttPass.anteckning.trim(), skapad: new Date().toISOString() };
-    andra((d) => ({ ...d, laspass: [...d.laspass, pass] }));
+    const pass: Laspass = {
+      id: nyId(), datum: nyttPass.datum, bokId, sidor,
+      franSida: null, tillSida: null, minuter,
+      anteckning: nyttPass.anteckning.trim(), skapad: new Date().toISOString(),
+    };
+    andra((d) => registreraLaspass(d, pass));
     setNyttPass((p) => ({ ...p, bokId, sidor: "", minuter: "", anteckning: "" }));
     setPassfel(null);
   };
@@ -367,7 +377,7 @@ export default function Litteratur({ sida, spara }: { sida: Sida | null; spara(d
       <div className="litt-verktyg">
         <div>
           <p className="pico opacity-50 mb-1">Mitt litteraturbibliotek</p>
-          <h2 className="display text-[clamp(1.45rem,3vw,2.15rem)] leading-none">Läst, läser, längtar efter.</h2>
+          <h2 className="display text-[clamp(1.45rem,3vw,2.15rem)] leading-none">Läst, läser, skall läsa.</h2>
         </div>
         <input className="falt litt-sok" type="search" value={sok} onChange={(e) => setSok(e.target.value)} placeholder="Sök titel, författare eller anteckning" aria-label="Sök i litteraturbiblioteket" />
       </div>
@@ -425,8 +435,11 @@ export default function Litteratur({ sida, spara }: { sida: Sida | null; spara(d
                       <select className="falt" value={p.bokId} onChange={(e) => andraPass(p.id, { bokId: e.target.value })} aria-label="Läst bok">{form.bocker.map((b) => <option key={b.id} value={b.id}>{b.titel || "Utan titel"}</option>)}</select>
                       <label><span className="pico">Sidor</span><input className="falt tabnum" inputMode="numeric" value={p.sidor ?? ""} onChange={(e) => andraPass(p.id, { sidor: tal(e.target.value) })} /></label>
                       <label><span className="pico">Min</span><input className="falt tabnum" inputMode="numeric" value={p.minuter ?? ""} onChange={(e) => andraPass(p.id, { minuter: tal(e.target.value) })} /></label>
+                      <span className="litt-sidintervall tabnum">
+                        {p.franSida !== null && p.tillSida !== null ? `s. ${p.franSida} → ${p.tillSida}` : "—"}
+                      </span>
                       <input className="falt" value={p.anteckning} onChange={(e) => andraPass(p.id, { anteckning: e.target.value })} placeholder="Notering" aria-label="Läsanteckning" />
-                      <button type="button" className="knapp pico" onClick={() => andra((d) => ({ ...d, laspass: d.laspass.filter((x) => x.id !== p.id) }))} aria-label={`Radera läspass för ${bok?.titel || "bok"}`}>✕</button>
+                      <button type="button" className="knapp pico" onClick={() => andra((d) => taBortLaspass(d, p.id))} aria-label={`Radera läspass för ${bok?.titel || "bok"}`}>✕</button>
                     </div>
                   );
                 })}

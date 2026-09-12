@@ -14,12 +14,22 @@ import { sorteraAnteckningar } from "@/lib/butik";
 import { byggRegister, slaUpp, type Mal } from "@/lib/kopplingar";
 import Kopplingar from "./Kopplingar";
 import { kortDatum, nyckel, startAvDag, tolka } from "@/lib/tid";
-import { useMobil } from "@/lib/anvandMedia";
 import type { Peka } from "./KalenderApp";
 
 const STANDARD_BOK = "Allmänna anteckningar";
 const BOKREGISTER_SIDA = "anteckningsbocker";
 type Blocktyp = Anteckningsblock["typ"];
+
+const OVERSTRYKNINGAR = [
+  { id: "1", namn: "Röd", farg: "rgb(255, 215, 205)" },
+  { id: "2", namn: "Orange", farg: "rgb(247, 221, 191)" },
+  { id: "3", namn: "Gul", farg: "rgb(247, 235, 174)" },
+  { id: "4", namn: "Grön", farg: "rgb(216, 234, 219)" },
+  { id: "5", namn: "Turkos", farg: "rgb(213, 237, 247)" },
+  { id: "6", namn: "Blå", farg: "rgb(219, 227, 242)" },
+  { id: "7", namn: "Lila", farg: "rgb(230, 219, 239)" },
+  { id: "8", namn: "Rosa", farg: "rgb(243, 221, 230)" },
+] as const;
 
 function nyttId() {
   return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
@@ -30,6 +40,9 @@ function nyttBlock(typ: Blocktyp): Anteckningsblock {
   if (typ === "rubrik") return { id, typ, text: "", niva: 2 };
   if (typ === "text" || typ === "citat") return { id, typ, text: "" };
   if (typ === "spalter") return { id, typ, vanster: "", hoger: "" };
+  if (typ === "glosor") {
+    return { id, typ, rader: [{ id: nyttId(), term: "", definition: "" }] };
+  }
   return { id, typ: "tabell", celler: [["Rubrik", "Rubrik"], ["", ""]] };
 }
 
@@ -47,6 +60,9 @@ function blockTillText(block: Anteckningsblock[]) {
     .flatMap((b) => {
       if (b.typ === "spalter") return [b.vanster, b.hoger];
       if (b.typ === "tabell") return b.celler.flat();
+      if (b.typ === "glosor") {
+        return b.rader.flatMap((rad) => [rad.term, rad.definition]);
+      }
       return [b.text];
     })
     .map(taBortTaggar)
@@ -68,7 +84,6 @@ export default function Anteckningar({
   onOppnaMal(mal: Mal): void;
 }) {
   const butik = useButik();
-  const mobil = useMobil();
   const [valdBok, setValdBok] = useState<string | null>(null);
   const [vald, setVald] = useState<string | null>(null);
   const [fraga, setFraga] = useState("");
@@ -98,7 +113,11 @@ export default function Anteckningar({
     butik.sparaSida(BOKREGISTER_SIDA, { namn: [...new Set(namn)] });
 
   const skapaAnteckning = useCallback(
-    (titel = "", bok = valdBok ?? bocker[0] ?? STANDARD_BOK) => {
+    (
+      titel = "",
+      bok = valdBok ?? bocker[0] ?? STANDARD_BOK,
+      format: "dokument" | "glosor" = "dokument"
+    ) => {
       if (!bocker.includes(bok)) {
         butik.sparaSida(BOKREGISTER_SIDA, { namn: [...bocker, bok] });
       }
@@ -106,7 +125,7 @@ export default function Anteckningar({
         titel,
         brodtext: "",
         bok,
-        block: [nyttBlock("text")],
+        block: [nyttBlock(format === "glosor" ? "glosor" : "text")],
         kalenderId: butik.kalendrar[0]?.id ?? "arbete",
       });
       setValdBok(bok);
@@ -218,12 +237,11 @@ export default function Anteckningar({
     setValdBok(null);
   };
 
-  if (mobil && oppen) {
+  if (oppen) {
     return (
       <Dokumentredigerare
         key={oppen.id}
         anteckning={oppen}
-        mobil
         onTillbaka={() => setVald(null)}
         onFoljLank={foljLank}
         onOppnaMal={onOppnaMal}
@@ -328,14 +346,23 @@ export default function Anteckningar({
                 </button>
               </div>
             </div>
-            <button
-              type="button"
-              className="knapp micro w-full"
-              data-ton="accent"
-              onClick={() => skapaAnteckning("", valdBok)}
-            >
-              + Nytt dokument
-            </button>
+            <div className="anteckningsformat-val">
+              <button
+                type="button"
+                className="knapp micro"
+                data-ton="accent"
+                onClick={() => skapaAnteckning("", valdBok, "dokument")}
+              >
+                + Dokument
+              </button>
+              <button
+                type="button"
+                className="knapp micro"
+                onClick={() => skapaAnteckning("Glosor", valdBok, "glosor")}
+              >
+                + Gloslista
+              </button>
+            </div>
             <div className="anteckningsdokument-rader">
               {dokument.map((a) => (
                 <button
@@ -347,7 +374,11 @@ export default function Anteckningar({
                 >
                   <span className="anteckning-titel">{a.titel || "Utan rubrik"}</span>
                   <span className="pico opacity-50">
-                    {a.datum ? kortDatum(tolka(a.datum)) : `${a.block.length} avsnitt`}
+                    {a.block[0]?.typ === "glosor"
+                      ? `Glosor · ${a.block[0].rader.filter((rad) => rad.term || rad.definition).length} kort`
+                      : a.datum
+                        ? kortDatum(tolka(a.datum))
+                        : `${a.block.length} avsnitt`}
                   </span>
                   {a.nalad && <span aria-label="Nålad">▣</span>}
                 </button>
@@ -358,25 +389,27 @@ export default function Anteckningar({
             </div>
           </aside>
 
-          <div className="anteckningsdokument-yta">
-            {oppen ? (
-              <Dokumentredigerare
-                key={oppen.id}
-                anteckning={oppen}
-                mobil={false}
-                onTillbaka={() => setVald(null)}
-                onFoljLank={foljLank}
-                onOppnaMal={onOppnaMal}
-                onOppnaAnteckning={setVald}
-              />
-            ) : (
-              <div className="anteckningar-tomt h-full">
-                <p className="micro">Inget dokument öppet</p>
-                <p className="pico opacity-55">
-                  Välj ett dokument till vänster eller skapa ett nytt.
-                </p>
-              </div>
-            )}
+          <div className="anteckningsdokument-yta anteckningsbibliotek-vinjett">
+            <div className="antecknings-tavlor" aria-hidden="true">
+              <span>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/stamning/laokoon.jpg" alt="" />
+              </span>
+              <span>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/stamning/havsgud.jpg" alt="" />
+              </span>
+            </div>
+            <div className="antecknings-vinjetttext">
+              <p className="pico opacity-50 uppercase tracking-[0.12em]">Två sätt att skriva</p>
+              <p className="display text-[clamp(1.35rem,2.5vw,2.1rem)] leading-tight">
+                Dokument för tankar.<br />Gloslistor för minnet.
+              </p>
+              <p className="pico opacity-55 max-w-[34rem] leading-relaxed">
+                Dokument öppnas som ett A4. Gloslistor är byggda för att kopieras
+                direkt till Quizlet eller Anki.
+              </p>
+            </div>
           </div>
         </section>
       )}
@@ -386,14 +419,12 @@ export default function Anteckningar({
 
 function Dokumentredigerare({
   anteckning,
-  mobil,
   onTillbaka,
   onFoljLank,
   onOppnaMal,
   onOppnaAnteckning,
 }: {
   anteckning: Anteckning;
-  mobil: boolean;
   onTillbaka(): void;
   onFoljLank(titel: string): void;
   onOppnaMal(mal: Mal): void;
@@ -403,6 +434,10 @@ function Dokumentredigerare({
   const [form, setForm] = useState(anteckning);
   const titelRef = useRef<HTMLInputElement>(null);
   const aktivtFalt = useRef<HTMLElement | null>(null);
+  const papperRef = useRef<HTMLDivElement>(null);
+  const [aktivtBlockId, setAktivtBlockId] = useState<string | null>(null);
+  const [utskriftsstatus, setUtskriftsstatus] = useState<string | null>(null);
+  const arGloslista = form.block[0]?.typ === "glosor";
 
   useEffect(() => {
     if (!anteckning.titel && !anteckning.brodtext) titelRef.current?.focus();
@@ -443,7 +478,9 @@ function Dokumentredigerare({
     satt({ block: kopia });
   };
 
-  const format = (kommando: "bold" | "italic" | "strikeThrough") => {
+  const format = (
+    kommando: "bold" | "italic" | "underline" | "strikeThrough"
+  ) => {
     const falt = aktivtFalt.current;
     if (!falt) return;
     falt.focus();
@@ -451,20 +488,110 @@ function Dokumentredigerare({
     falt.dispatchEvent(new InputEvent("input", { bubbles: true }));
   };
 
+  const overstryk = (farg: string | null) => {
+    const falt = aktivtFalt.current;
+    if (!falt) return;
+    falt.focus();
+    document.execCommand("styleWithCSS", false, "true");
+    const varde = farg ?? "transparent";
+    const lyckades = document.execCommand("hiliteColor", false, varde);
+    if (!lyckades) document.execCommand("backColor", false, varde);
+    falt.dispatchEvent(new InputEvent("input", { bubbles: true }));
+  };
+
+  const oppnaUtskrift = () => {
+    const papper = papperRef.current;
+    if (!papper) return;
+    const utskrift = window.open("", "_blank", "popup,width=980,height=860");
+    if (!utskrift) {
+      setUtskriftsstatus("Tillåt popup-fönster och försök igen.");
+      window.setTimeout(() => setUtskriftsstatus(null), 5000);
+      return;
+    }
+
+    const stilar = Array.from(
+      document.querySelectorAll('link[rel="stylesheet"], style')
+    )
+      .map((nod) => nod.outerHTML)
+      .join("\n");
+    utskrift.document.open();
+    utskrift.document.write(`<!doctype html>
+      <html lang="sv">
+        <head>
+          <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <title>Utskrift – Oscars databas</title>
+          ${stilar}
+          <style>
+            body.utskriftssida { height:auto; min-height:100%; overflow:auto; padding:24px; background:#d8d7d2; }
+            .utskriftskontroll { position:sticky; z-index:20; top:0; display:flex; align-items:center; justify-content:center; gap:14px; width:min(210mm, 100%); margin:0 auto 18px; padding:10px 12px; border:1px solid #111; background:#f7f7f5; color:#111; font:12px/1.4 sans-serif; }
+            .utskriftskontroll button { padding:7px 12px; border:1px solid #111; background:#ff5c39; cursor:pointer; }
+            body.utskriftssida .anteckningspapper { width:min(210mm, 100%); margin:0 auto; }
+            body.utskriftssida .anteckningsblock-meny,
+            body.utskriftssida .anteckningsblock-kontroller,
+            body.utskriftssida .anteckningsrubrik-wrap > button,
+            body.utskriftssida .anteckningstabell-wrap > .flex,
+            body.utskriftssida .anteckningskopplingar { display:none !important; }
+            @media print { .utskriftskontroll { display:none !important; } body.utskriftssida { padding:0; background:#fff; } }
+          </style>
+        </head>
+        <body class="utskriftssida">
+          <div class="utskriftskontroll">
+            <span>Välj skrivare eller <strong>Spara som PDF</strong> i dialogrutan.</span>
+            <button type="button" data-skriv-ut>Skriv ut / PDF</button>
+          </div>
+          ${papper.outerHTML}
+        </body>
+      </html>`);
+    utskrift.document.close();
+    utskrift.document
+      .querySelector<HTMLButtonElement>("[data-skriv-ut]")
+      ?.addEventListener("click", () => utskrift.print());
+    setUtskriftsstatus("Utskriftsvyn öppnades i ett nytt fönster.");
+    window.setTimeout(() => setUtskriftsstatus(null), 4000);
+    window.setTimeout(() => {
+      utskrift.focus();
+      utskrift.print();
+    }, 650);
+  };
+
+  const aktivtBlock = form.block.find((block) => block.id === aktivtBlockId);
+  const aktivStil =
+    aktivtBlock?.typ === "rubrik"
+      ? `h${aktivtBlock.niva}`
+      : aktivtBlock?.typ === "text"
+        ? "p"
+        : "";
+  const andraStil = (stil: "p" | "h1" | "h2" | "h3") => {
+    if (!aktivtBlockId) return;
+    setForm((f) => ({
+      ...f,
+      block: f.block.map((block) => {
+        if (block.id !== aktivtBlockId) return block;
+        if (block.typ !== "text" && block.typ !== "rubrik") return block;
+        if (stil === "p") return { id: block.id, typ: "text", text: block.text };
+        return {
+          id: block.id,
+          typ: "rubrik",
+          text: block.text,
+          niva: Number(stil.slice(1)) as 1 | 2 | 3,
+        };
+      }),
+    }));
+  };
+
   return (
     <article className="anteckningseditor h-full min-h-0 flex flex-col">
       <div className="anteckningseditor-verktyg">
         <div className="flex items-center gap-2 min-w-0 flex-1">
-          {mobil && (
-            <button
-              type="button"
-              className="knapp micro"
-              onClick={onTillbaka}
-              aria-label="Tillbaka till biblioteket"
-            >
-              ‹
-            </button>
-          )}
+          <button
+            type="button"
+            className="knapp micro"
+            onClick={onTillbaka}
+            aria-label="Tillbaka till biblioteket"
+          >
+            ‹ Biblioteket
+          </button>
           <input
             ref={titelRef}
             className="falt !border-0 !px-0 display !text-[1.1rem]"
@@ -474,32 +601,67 @@ function Dokumentredigerare({
             aria-label="Dokumentets titel"
           />
         </div>
-        <div className="anteckningsformat" role="toolbar" aria-label="Textformatering">
+        {!arGloslista && (
+          <div className="anteckningsformat" role="toolbar" aria-label="Textformatering">
+            <select
+              value={aktivStil}
+              onChange={(e) => andraStil(e.target.value as "p" | "h1" | "h2" | "h3")}
+              disabled={!aktivStil}
+              aria-label="Textstil för aktivt avsnitt"
+              title={aktivStil ? "Textstil" : "Placera markören i ett textavsnitt"}
+            >
+              <option value="">Textstil</option>
+              <option value="p">Stycke</option>
+              <option value="h1">Rubrik 1</option>
+              <option value="h2">Rubrik 2</option>
+              <option value="h3">Rubrik 3</option>
+            </select>
+            <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => format("bold")} aria-label="Fet text"><b>B</b></button>
+            <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => format("italic")} aria-label="Kursiv text"><i>I</i></button>
+            <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => format("underline")} aria-label="Understruken text"><u>U</u></button>
+            <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => format("strikeThrough")} aria-label="Genomstruken text"><s>S</s></button>
+            <span className="anteckningsmarkeringar" role="group" aria-label="Överstrykning">
+              <span className="anteckningsmarkering-etikett">Överstryk</span>
+              {OVERSTRYKNINGAR.map((markering) => (
+                <button
+                  key={markering.id}
+                  type="button"
+                  className="anteckningsmarkering"
+                  style={{ background: markering.farg }}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => overstryk(markering.farg)}
+                  aria-label={`Överstryk med ${markering.namn.toLocaleLowerCase("sv")}`}
+                  title={markering.namn}
+                />
+              ))}
+              <button
+                type="button"
+                className="anteckningsmarkering-rensa"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => overstryk(null)}
+                aria-label="Ta bort överstrykning"
+                title="Ta bort överstrykning"
+              >
+                ×
+              </button>
+            </span>
+          </div>
+        )}
+        {!arGloslista && (
           <button
             type="button"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => format("bold")}
-            aria-label="Fet text"
+            className="knapp pico antecknings-skrivut"
+            onClick={oppnaUtskrift}
+            title="Öppna en ren utskriftsvy; välj Spara som PDF för att ladda ned"
           >
-            <b>B</b>
+            Skriv ut / PDF
           </button>
-          <button
-            type="button"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => format("italic")}
-            aria-label="Kursiv text"
-          >
-            <i>I</i>
-          </button>
-          <button
-            type="button"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => format("strikeThrough")}
-            aria-label="Överstruken text"
-          >
-            <s>S</s>
-          </button>
-        </div>
+        )}
+        {utskriftsstatus && !arGloslista && (
+          <span className="pico antecknings-utskriftsstatus" role="status">
+            {utskriftsstatus}
+          </span>
+        )}
         <button
           type="button"
           className="nal"
@@ -564,69 +726,62 @@ function Dokumentredigerare({
         </button>
       </div>
 
-      <div className="anteckningsark tunnskroll">
-        <Blockmeny
-          onValj={(typ) => satt({ block: [nyttBlock(typ), ...form.block] })}
-          etikett="Lägg första avsnittet"
-        />
-        {form.block.map((block, index) => (
-          <div key={block.id} className="anteckningsblock">
-            <div className="anteckningsblock-kontroller">
-              <button
-                type="button"
-                onClick={() => flytta(index, -1)}
-                aria-label="Flytta avsnittet uppåt"
-              >
-                ↑
-              </button>
-              <button
-                type="button"
-                onClick={() => flytta(index, 1)}
-                aria-label="Flytta avsnittet nedåt"
-              >
-                ↓
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  satt({ block: form.block.filter((b) => b.id !== block.id) })
-                }
-                aria-label="Radera avsnittet"
-              >
-                ×
-              </button>
-            </div>
-            <Block
-              block={block}
-              aktivtFalt={aktivtFalt}
-              onChange={(nytt) => sattBlock(block.id, nytt)}
-            />
+      <div className={arGloslista ? "glosarbetsyta tunnskroll" : "anteckningsarbetsyta tunnskroll"}>
+        {arGloslista && form.block[0]?.typ === "glosor" ? (
+          <Glosredigerare
+            titel={form.titel}
+            block={form.block[0]}
+            onChange={(nytt) => sattBlock(nytt.id, nytt)}
+          />
+        ) : (
+          <div ref={papperRef} className="anteckningspapper">
+            <header className="anteckningspapper-huvud">
+              <p className="pico opacity-45 uppercase tracking-[0.13em]">{form.bok}</p>
+              <h1>{form.titel || "Utan rubrik"}</h1>
+            </header>
             <Blockmeny
-              onValj={(typ) => infogaEfter(index, typ)}
-              etikett="Lägg till avsnitt"
+              onValj={(typ) => satt({ block: [nyttBlock(typ), ...form.block] })}
+              etikett="Lägg första avsnittet"
             />
-          </div>
-        ))}
-        {form.block.length === 0 && (
-          <div className="anteckningar-tomt !min-h-[220px]">
-            <p className="micro">Dokumentet är tomt</p>
-            <p className="pico opacity-55">
-              Välj ett avsnitt ovan: text, rubrik, tvåspalt, tabell eller citat.
-            </p>
+            {form.block.map((block, index) => (
+              <div
+                key={block.id}
+                className="anteckningsblock"
+                onFocusCapture={() => setAktivtBlockId(block.id)}
+              >
+                <div className="anteckningsblock-kontroller">
+                  <button type="button" onClick={() => flytta(index, -1)} aria-label="Flytta avsnittet uppåt">↑</button>
+                  <button type="button" onClick={() => flytta(index, 1)} aria-label="Flytta avsnittet nedåt">↓</button>
+                  <button
+                    type="button"
+                    onClick={() => satt({ block: form.block.filter((b) => b.id !== block.id) })}
+                    aria-label="Radera avsnittet"
+                  >
+                    ×
+                  </button>
+                </div>
+                <Block block={block} aktivtFalt={aktivtFalt} onChange={(nytt) => sattBlock(block.id, nytt)} />
+                <Blockmeny onValj={(typ) => infogaEfter(index, typ)} etikett="Lägg till avsnitt" />
+              </div>
+            ))}
+            {form.block.length === 0 && (
+              <div className="anteckningar-tomt !min-h-[220px]">
+                <p className="micro">Dokumentet är tomt</p>
+                <p className="pico opacity-55">Välj ett avsnitt ovan: text, rubrik, tvåspalt, tabell eller citat.</p>
+              </div>
+            )}
+
+            <div className="anteckningskopplingar">
+              <Kopplingar
+                id={anteckning.id}
+                titel={form.titel}
+                text={blockTillText(form.block)}
+                onOppnaMal={(mal) => mal.slag === "anteckning" ? onOppnaAnteckning(mal.id) : onOppnaMal(mal)}
+                onSkapa={onFoljLank}
+              />
+            </div>
           </div>
         )}
-
-        <div className="anteckningskopplingar">
-          <Kopplingar
-            id={anteckning.id}
-            titel={form.titel}
-            text={blockTillText(form.block)}
-            onOppnaMal={(mal) =>
-              mal.slag === "anteckning" ? onOppnaAnteckning(mal.id) : onOppnaMal(mal)
-            }
-            onSkapa={onFoljLank}
-          />
-        </div>
       </div>
     </article>
   );
@@ -659,6 +814,120 @@ function Blockmeny({
   );
 }
 
+function Glosredigerare({
+  titel,
+  block,
+  onChange,
+}: {
+  titel: string;
+  block: Extract<Anteckningsblock, { typ: "glosor" }>;
+  onChange(block: Extract<Anteckningsblock, { typ: "glosor" }>): void;
+}) {
+  const [kopierad, setKopierad] = useState(false);
+  const rena = (text: string) => text.replace(/\t/g, " ").replace(/[\r\n]+/g, " ").trim();
+  const importtext = block.rader
+    .filter((rad) => rad.term.trim() || rad.definition.trim())
+    .map((rad) => `${rena(rad.term)}\t${rena(rad.definition)}`)
+    .join("\n");
+
+  const sattRad = (id: string, delar: { term?: string; definition?: string }) => {
+    const rader = block.rader.map((rad) =>
+      rad.id === id ? { ...rad, ...delar } : rad
+    );
+
+    // Tabellen håller alltid exakt en tom rad sist. Så snart den fylls
+    // växer listan utan att användaren behöver avbryta skrivandet för att
+    // skapa nästa kort.
+    while (
+      rader.length > 1 &&
+      !rader.at(-1)?.term.trim() &&
+      !rader.at(-1)?.definition.trim() &&
+      !rader.at(-2)?.term.trim() &&
+      !rader.at(-2)?.definition.trim()
+    ) {
+      rader.pop();
+    }
+    const sista = rader.at(-1);
+    if (sista && (sista.term.trim() || sista.definition.trim())) {
+      rader.push({ id: nyttId(), term: "", definition: "" });
+    }
+    onChange({ ...block, rader });
+  };
+
+  const kopiera = async () => {
+    if (!importtext) return;
+    try {
+      await navigator.clipboard.writeText(importtext);
+    } catch {
+      const falt = document.createElement("textarea");
+      falt.value = importtext;
+      falt.style.position = "fixed";
+      falt.style.opacity = "0";
+      document.body.appendChild(falt);
+      falt.select();
+      document.execCommand("copy");
+      falt.remove();
+    }
+    setKopierad(true);
+    window.setTimeout(() => setKopierad(false), 1800);
+  };
+
+  const laddaNed = () => {
+    if (!importtext) return;
+    const blob = new Blob([importtext], { type: "text/plain;charset=utf-8" });
+    const lank = document.createElement("a");
+    lank.href = URL.createObjectURL(blob);
+    lank.download = `${titel.trim().replace(/[^a-z0-9åäö_-]+/gi, "-").replace(/^-|-$/g, "") || "glosor"}.txt`;
+    lank.click();
+    window.setTimeout(() => URL.revokeObjectURL(lank.href), 0);
+  };
+
+  return (
+    <div className="glosdokument">
+      <div className="glosverktyg">
+        <p className="pico opacity-60">
+          En tabellrad blir ett kort · tabulator mellan term och definition
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          <button type="button" className="knapp micro" data-ton="accent" onClick={() => void kopiera()} disabled={!importtext}>
+            {kopierad ? "Kopierat" : "Kopiera till Quizlet"}
+          </button>
+          <button type="button" className="knapp micro" onClick={laddaNed} disabled={!importtext}>Ladda ned .txt</button>
+        </div>
+      </div>
+
+      <div className="glostabell" role="table" aria-label="Glosor">
+        <div className="glosrad glosrad-huvud" role="row">
+          <span role="columnheader">Term</span>
+          <span role="columnheader">Definition</span>
+        </div>
+        {block.rader.map((rad, index) => (
+          <div className="glosrad" role="row" key={rad.id}>
+            <textarea
+              className="glosfalt"
+              rows={2}
+              value={rad.term}
+              onChange={(e) => sattRad(rad.id, { term: e.target.value })}
+              placeholder="Term, uttryck eller mening"
+              aria-label={`Term ${index + 1}`}
+              role="cell"
+            />
+            <textarea
+              className="glosfalt"
+              rows={2}
+              value={rad.definition}
+              onChange={(e) => sattRad(rad.id, { definition: e.target.value })}
+              placeholder="Definition, översättning eller mening"
+              aria-label={`Definition ${index + 1}`}
+              role="cell"
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Block({
   block,
   aktivtFalt,
@@ -669,12 +938,13 @@ function Block({
   onChange(block: Anteckningsblock): void;
 }) {
   if (block.typ === "rubrik") {
+    const tag = block.niva === 1 ? "h1" : block.niva === 2 ? "h2" : "h3";
     return (
       <div className="anteckningsrubrik-wrap">
         <RichText
           html={block.text}
-          tag={block.niva === 2 ? "h2" : "h3"}
-          klass={block.niva === 2 ? "antecknings-h2" : "antecknings-h3"}
+          tag={tag}
+          klass={`antecknings-h${block.niva}`}
           platshallare="Rubrik"
           aktivtFalt={aktivtFalt}
           onChange={(text) => onChange({ ...block, text })}
@@ -683,7 +953,10 @@ function Block({
           type="button"
           className="knapp pico"
           onClick={() =>
-            onChange({ ...block, niva: block.niva === 2 ? 3 : 2 })
+            onChange({
+              ...block,
+              niva: block.niva === 3 ? 1 : (block.niva + 1) as 1 | 2 | 3,
+            })
           }
         >
           H{block.niva}
@@ -737,6 +1010,8 @@ function Block({
       </div>
     );
   }
+
+  if (block.typ === "glosor") return null;
 
   const sattCell = (rad: number, kolumn: number, text: string) =>
     onChange({
@@ -829,7 +1104,7 @@ function Block({
 function saneraHtml(html: string) {
   if (typeof document === "undefined") {
     return html.replace(
-      /<(?!\/?(?:b|strong|i|em|s|strike|br)\b)[^>]*>/gi,
+      /<(?!\/?(?:b|strong|i|em|u|s|strike|br)\b)[^>]*>/gi,
       ""
     );
   }
@@ -840,10 +1115,12 @@ function saneraHtml(html: string) {
     "STRONG",
     "I",
     "EM",
+    "U",
     "S",
     "STRIKE",
     "BR",
     "DIV",
+    "SPAN",
   ]);
   const gang = document.createTreeWalker(mall.content, NodeFilter.SHOW_ELEMENT);
   const element: Element[] = [];
@@ -852,9 +1129,29 @@ function saneraHtml(html: string) {
   for (const el of element) {
     if (!tillatna.has(el.tagName)) {
       el.replaceWith(...Array.from(el.childNodes));
-    } else {
-      for (const attr of Array.from(el.attributes)) el.removeAttribute(attr.name);
+      continue;
     }
+
+    if (el.tagName === "SPAN") {
+      const sparad = el.getAttribute("data-markering");
+      const bakgrund = (el as HTMLElement).style.backgroundColor
+        .toLocaleLowerCase()
+        .replace(/\s+/g, "");
+      const markering = OVERSTRYKNINGAR.find(
+        (val) =>
+          val.id === sparad ||
+          val.farg.toLocaleLowerCase().replace(/\s+/g, "") === bakgrund
+      );
+      for (const attr of Array.from(el.attributes)) el.removeAttribute(attr.name);
+      if (markering) {
+        el.setAttribute("data-markering", markering.id);
+      } else {
+        el.replaceWith(...Array.from(el.childNodes));
+      }
+      continue;
+    }
+
+    for (const attr of Array.from(el.attributes)) el.removeAttribute(attr.name);
   }
   return mall.innerHTML;
 }
@@ -868,7 +1165,7 @@ function RichText({
   onChange,
 }: {
   html: string;
-  tag: "p" | "div" | "h2" | "h3" | "blockquote";
+  tag: "p" | "div" | "h1" | "h2" | "h3" | "blockquote";
   klass: string;
   platshallare: string;
   aktivtFalt: MutableRefObject<HTMLElement | null>;
@@ -878,7 +1175,7 @@ function RichText({
   useEffect(() => {
     const el = ref.current;
     if (el && document.activeElement !== el && el.innerHTML !== html) {
-      el.innerHTML = html;
+      el.innerHTML = saneraHtml(html);
     }
   }, [html]);
   const Tag = tag;
@@ -905,7 +1202,6 @@ function RichText({
       onKeyDown={(e) => {
         if (e.key === "Escape") e.currentTarget.blur();
       }}
-      dangerouslySetInnerHTML={{ __html: saneraHtml(html) }}
     />
   );
 }

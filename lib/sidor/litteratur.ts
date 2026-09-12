@@ -31,7 +31,7 @@ export type BokStatus = "laser" | "vill-lasa" | "last" | "vill-kopa" | "ager";
 
 export const STATUSAR: { id: BokStatus; namn: string }[] = [
   { id: "laser", namn: "Läser nu" },
-  { id: "vill-lasa", namn: "Vill läsa" },
+  { id: "vill-lasa", namn: "Skall läsa" },
   { id: "last", namn: "Läst" },
   { id: "vill-kopa", namn: "Vill köpa" },
   { id: "ager", namn: "Äger" },
@@ -59,6 +59,9 @@ export interface Laspass {
   datum: string;
   bokId: string;
   sidor: number | null;
+  /** Sidposition före och efter passet, när antal lästa sidor angavs. */
+  franSida: number | null;
+  tillSida: number | null;
   minuter: number | null;
   anteckning: string;
   skapad: string;
@@ -138,6 +141,8 @@ function tolkaLaspass(x: unknown, index: number, bokIder: Set<string>): Laspass 
     datum,
     bokId,
     sidor: heltal(x.sidor, 0, 100_000),
+    franSida: heltal(x.franSida, 0, 100_000),
+    tillSida: heltal(x.tillSida, 0, 100_000),
     minuter: heltal(x.minuter, 0, 100_000),
     anteckning: text(x.anteckning),
     skapad: text(x.skapad) || "1970-01-01T00:00:00.000Z",
@@ -163,7 +168,62 @@ export function kategoriNamn(id: BokKategori): string {
 }
 
 export function statusNamn(id: BokStatus): string {
-  return STATUSAR.find((s) => s.id === id)?.namn ?? "Vill läsa";
+  return STATUSAR.find((s) => s.id === id)?.namn ?? "Skall läsa";
+}
+
+/**
+ * Lägger in ett läspass och flyttar samtidigt bokens sidmarkör framåt.
+ * Passet minns intervallet så att läsloggen kan visa exempelvis 130 → 150.
+ */
+export function registreraLaspass(
+  data: LitteraturData,
+  pass: Laspass
+): LitteraturData {
+  const bok = data.bocker.find((b) => b.id === pass.bokId);
+  if (!bok || pass.sidor === null) {
+    return { ...data, laspass: [...data.laspass, pass] };
+  }
+
+  const franSida = bok.aktuellSida ?? 0;
+  const okapadTill = franSida + pass.sidor;
+  const tillSida = bok.totaltSidor === null
+    ? okapadTill
+    : Math.min(okapadTill, bok.totaltSidor);
+  return {
+    ...data,
+    bocker: data.bocker.map((b) =>
+      b.id === bok.id ? { ...b, aktuellSida: tillSida } : b
+    ),
+    laspass: [...data.laspass, { ...pass, franSida, tillSida }],
+  };
+}
+
+/**
+ * Tar bort ett läspass och backar samma verkliga sidintervall som passet
+ * flyttade boken. Vid bokens slut kan det vara mindre än det inmatade
+ * sidantalet (190 + 20 blev exempelvis 200, inte 210).
+ */
+export function taBortLaspass(
+  data: LitteraturData,
+  id: string
+): LitteraturData {
+  const pass = data.laspass.find((p) => p.id === id);
+  if (!pass) return data;
+
+  const verkligtAntal =
+    pass.franSida !== null && pass.tillSida !== null
+      ? Math.max(0, pass.tillSida - pass.franSida)
+      : (pass.sidor ?? 0);
+
+  return {
+    ...data,
+    bocker: data.bocker.map((bok) =>
+      bok.id === pass.bokId && bok.aktuellSida !== null
+        ? { ...bok, aktuellSida: Math.max(0, bok.aktuellSida - verkligtAntal) }
+        : bok
+    ),
+    laspass: data.laspass.filter((p) => p.id !== id),
+  };
 }
 
 /** Stabil färg på standardomslaget, härledd ur titeln och kategorin. */

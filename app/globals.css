@@ -34,6 +34,16 @@
   --accent: rgb(var(--accent-kanal));
   --azure: rgb(var(--azure-kanal));
 
+  /* Överstrykningarna följer de åtta marginalfärgerna i Fornsvenska. */
+  --highlight-1: rgb(255 215 205);
+  --highlight-2: rgb(247 221 191);
+  --highlight-3: rgb(247 235 174);
+  --highlight-4: rgb(216 234 219);
+  --highlight-5: rgb(213 237 247);
+  --highlight-6: rgb(219 227 242);
+  --highlight-7: rgb(230 219 239);
+  --highlight-8: rgb(243 221 230);
+
   /* Kalenderfärger — dämpade ytor, ärvda från arkivets mapptoner.
      Alla ligger över 15:1 mot --ink, så etiketterna är fullt läsbara. */
   --kal-1: #f3e2b4;
@@ -739,6 +749,36 @@ select.falt {
    Samma vokabulär som kalendern: 1px-ramar, inga rundade hörn, accenten
    sparad till det som verkligen kräver uppmärksamhet.
    ================================================================== */
+.attgora-sida {
+  position: relative;
+  isolation: isolate;
+  background:
+    linear-gradient(rgb(247 247 245 / 0.94), rgb(247 247 245 / 0.98)),
+    url("/stamning/laokoon.jpg") 96% 85% / min(34vw, 430px) auto no-repeat;
+}
+
+.attgora-tavla {
+  width: min(330px, calc(100% - 3rem));
+  height: 128px;
+  margin: 1.2rem 1.5rem 2rem auto;
+  padding: 5px;
+  border: 1px solid rgb(var(--ink-kanal) / 0.42);
+  background: #fff;
+  box-shadow: 5px 7px 18px rgb(var(--ink-kanal) / 0.1);
+  transform: rotate(-0.7deg);
+  opacity: 0.64;
+  overflow: hidden;
+}
+
+.attgora-tavla img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: center 35%;
+  filter: grayscale(0.72) contrast(1.08);
+}
+
 .uppgift {
   border-bottom: 1px solid rgb(17 17 17 / 0.14);
   transition: background-color 120ms linear;
@@ -1039,6 +1079,27 @@ select.falt {
 .sidval[data-vald="1"] {
   background: var(--panel);
   box-shadow: inset 3px 0 0 var(--ink);
+}
+
+.annat-tavla {
+  height: 92px;
+  margin: 1rem 0.75rem 1.2rem;
+  padding: 4px;
+  border: 1px solid rgb(var(--ink-kanal) / 0.34);
+  background: #fff;
+  box-shadow: 4px 6px 14px rgb(var(--ink-kanal) / 0.08);
+  transform: rotate(0.8deg);
+  opacity: 0.58;
+  overflow: hidden;
+}
+
+.annat-tavla img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: center 44%;
+  filter: grayscale(0.55) contrast(1.03);
 }
 
 @media (max-width: 767px) {
@@ -2896,6 +2957,27 @@ input.dokdeck:focus {
   background: transparent !important;
 }
 
+.sidopanel-tavla {
+  height: 106px;
+  margin: 0.45rem 0.65rem 1rem;
+  padding: 4px;
+  border: 1px solid rgb(253 251 239 / 0.34);
+  background: rgb(253 251 239 / 0.92);
+  box-shadow: 5px 7px 18px rgb(0 0 0 / 0.34);
+  transform: rotate(-1deg);
+  opacity: 0.66;
+  overflow: hidden;
+}
+
+.sidopanel-tavla img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: center 24%;
+  filter: grayscale(0.72) contrast(1.12) brightness(0.86);
+}
+
 /* ==================================================================
    KOMMANDOPALETT
    ================================================================== */
@@ -3275,7 +3357,30 @@ input.dokdeck:focus {
    inbäddad från en annan webbplats.
    ================================================================== */
 .litt-sida {
+  position: relative;
+  isolation: isolate;
   background: var(--paper);
+}
+
+.litt-sida::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  top: 2.6rem;
+  right: 0;
+  width: min(36rem, 48vw);
+  height: 26rem;
+  background: url("/stamning/bagyttar.jpg") center / cover no-repeat;
+  filter: grayscale(1) blur(10px) contrast(1.15);
+  opacity: 0.045;
+  -webkit-mask-image: linear-gradient(to left, #000 12%, transparent 92%);
+  mask-image: linear-gradient(to left, #000 12%, transparent 92%);
+  pointer-events: none;
+}
+
+.litt-sida > * {
+  position: relative;
+  z-index: 1;
 }
 
 .litt-matare {
@@ -3503,6 +3608,25 @@ input.dokdeck:focus {
   background: #c5b0f4;
 }
 
+.litt-tavla {
+  height: 126px;
+  padding: 5px;
+  border: 1px solid rgb(var(--ink-kanal) / 0.45);
+  background: var(--paper);
+  box-shadow: 4px 5px 0 rgb(var(--ink-kanal) / 0.09);
+  overflow: hidden;
+}
+
+.litt-tavla img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 42%;
+  filter: grayscale(0.8) contrast(1.06);
+  opacity: 0.82;
+}
+
 .litt-fakta {
   border-top: 1px solid rgb(var(--ink-kanal) / 0.16);
 }
@@ -3541,10 +3665,17 @@ input.dokdeck:focus {
 .litt-loggny,
 .litt-loggrad {
   display: grid;
-  grid-template-columns: minmax(125px, 1fr) 140px 80px 80px minmax(130px, 1fr) auto;
   gap: 0.45rem;
   align-items: end;
   padding: 0.65rem;
+}
+
+.litt-loggny {
+  grid-template-columns: minmax(125px, 1fr) 140px 80px 80px minmax(130px, 1fr) auto;
+}
+
+.litt-loggrad {
+  grid-template-columns: minmax(116px, 1fr) 132px 72px 72px 96px minmax(110px, 1fr) auto;
 }
 
 .litt-loggny {
@@ -3565,6 +3696,13 @@ input.dokdeck:focus {
   display: flex;
   flex-direction: column;
   gap: 0.18rem;
+}
+
+.litt-sidintervall {
+  align-self: center;
+  font-size: 0.58rem;
+  white-space: nowrap;
+  opacity: 0.65;
 }
 
 @media (max-width: 1080px) {
@@ -3614,7 +3752,7 @@ input.dokdeck:focus {
   .litt-loggny > :first-child,
   .litt-loggrad > :nth-child(2),
   .litt-loggny > :nth-child(5),
-  .litt-loggrad > :nth-child(5) {
+  .litt-loggrad > :nth-child(6) {
     grid-column: 1 / -1;
   }
 }
@@ -3948,6 +4086,12 @@ input.dokdeck:focus {
   border-top: 1px solid var(--ink);
 }
 
+.anteckningsformat-val {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+}
+
 .anteckningsdokument-rad {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
@@ -3971,8 +4115,62 @@ input.dokdeck:focus {
   min-height: 0;
 }
 
+.anteckningsbibliotek-vinjett {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: clamp(1.25rem, 4vw, 3.5rem);
+  background:
+    linear-gradient(145deg, rgb(255 255 255 / 0.86), rgb(255 255 255 / 0.2)),
+    var(--panel);
+}
+
+.antecknings-tavlor {
+  position: absolute;
+  inset: clamp(1rem, 3vw, 2.5rem) clamp(1rem, 3vw, 2.5rem) auto auto;
+  display: flex;
+  align-items: start;
+  gap: clamp(0.7rem, 2vw, 1.4rem);
+  transform: rotate(1.5deg);
+  opacity: 0.82;
+}
+
+.antecknings-tavlor span {
+  display: block;
+  width: clamp(118px, 16vw, 205px);
+  height: clamp(155px, 22vw, 285px);
+  padding: 6px;
+  border: 1px solid rgb(var(--ink-kanal) / 0.55);
+  background: #fff;
+  box-shadow: 7px 9px 22px rgb(var(--ink-kanal) / 0.14);
+}
+
+.antecknings-tavlor span:last-child {
+  margin-top: clamp(1.5rem, 4vw, 4rem);
+  transform: rotate(-4deg);
+}
+
+.antecknings-tavlor img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  filter: grayscale(0.55) contrast(1.08);
+}
+
+.antecknings-vinjetttext {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding-top: min(42vh, 22rem);
+}
+
 .anteckningseditor {
-  background: var(--panel);
+  background: #d8d7d2;
 }
 
 .anteckningseditor-verktyg,
@@ -3985,14 +4183,29 @@ input.dokdeck:focus {
   background: var(--paper);
 }
 
+.anteckningseditor-verktyg {
+  flex-wrap: wrap;
+}
+
 .anteckningseditor-meta {
   flex-wrap: wrap;
 }
 
 .anteckningsformat {
   display: inline-flex;
+  align-items: stretch;
   border: 1px solid var(--ink);
   background: var(--panel);
+}
+
+.anteckningsformat select {
+  width: 7.4rem;
+  border: 0;
+  border-right: 1px solid var(--ink);
+  background: var(--panel);
+  padding: 0 0.4rem;
+  font-size: 0.62rem;
+  outline: 0;
 }
 
 .anteckningsformat button {
@@ -4010,14 +4223,96 @@ input.dokdeck:focus {
   background: var(--accent);
 }
 
-.anteckningsark {
+.anteckningsmarkeringar {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0 0.35rem;
+  border-left: 1px solid var(--ink);
+}
+
+.anteckningsmarkering-etikett {
+  padding-right: 0.2rem;
+  font-size: 0.52rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.55;
+}
+
+.anteckningsformat .anteckningsmarkering {
+  min-width: 13px;
+  min-height: 13px;
+  width: 13px;
+  height: 13px;
+  border: 1px solid rgb(var(--ink-kanal) / 0.45);
+}
+
+.anteckningsformat .anteckningsmarkering:hover {
+  outline: 1px solid var(--ink);
+  outline-offset: 1px;
+}
+
+.anteckningsformat .anteckningsmarkering-rensa {
+  min-width: 1.35rem;
+  min-height: 1.8rem;
+  border-right: 0;
+  font-size: 0.7rem;
+}
+
+.antecknings-utskriftsstatus {
+  max-width: 13rem;
+  opacity: 0.55;
+}
+
+.anteckningsarbetsyta {
+  position: relative;
+  isolation: isolate;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: clamp(1.1rem, 4vw, 3rem) clamp(1rem, 6vw, 5.5rem);
+  padding: clamp(1.2rem, 4vw, 3.2rem);
+  background: #d8d7d2;
+}
+
+.anteckningsarbetsyta::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: -35px;
   background:
-    linear-gradient(90deg, rgb(17 17 17 / 0.035) 1px, transparent 1px) 0 0 / 26px 26px,
-    var(--panel);
+    linear-gradient(rgb(216 215 210 / 0.76), rgb(216 215 210 / 0.9)),
+    url("/stamning/laokoon.jpg") 8% 38% / 38% auto no-repeat,
+    url("/stamning/havsgud.jpg") 96% 74% / 34% auto no-repeat;
+  filter: blur(15px) grayscale(0.55);
+  opacity: 0.48;
+  pointer-events: none;
+}
+
+.anteckningspapper {
+  position: relative;
+  z-index: 1;
+  width: min(210mm, calc(100% - 1rem));
+  min-height: 297mm;
+  margin: 0 auto;
+  padding: 18mm 20mm 24mm;
+  background: #fff;
+  color: #111;
+  box-shadow: 0 1px 1px rgb(17 17 17 / 0.12), 0 18px 54px rgb(17 17 17 / 0.18);
+}
+
+.anteckningspapper-huvud {
+  padding-bottom: 9mm;
+  margin-bottom: 5mm;
+  border-bottom: 1px solid rgb(17 17 17 / 0.25);
+}
+
+.anteckningspapper-huvud h1 {
+  margin-top: 2mm;
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 2.25rem;
+  font-weight: 400;
+  line-height: 1.08;
+  overflow-wrap: anywhere;
 }
 
 .anteckningsblock {
@@ -4100,11 +4395,31 @@ input.dokdeck:focus {
   opacity: 0.28;
 }
 
+.antecknings-rich [data-markering="1"] { background: var(--highlight-1); }
+.antecknings-rich [data-markering="2"] { background: var(--highlight-2); }
+.antecknings-rich [data-markering="3"] { background: var(--highlight-3); }
+.antecknings-rich [data-markering="4"] { background: var(--highlight-4); }
+.antecknings-rich [data-markering="5"] { background: var(--highlight-5); }
+.antecknings-rich [data-markering="6"] { background: var(--highlight-6); }
+.antecknings-rich [data-markering="7"] { background: var(--highlight-7); }
+.antecknings-rich [data-markering="8"] { background: var(--highlight-8); }
+
+.antecknings-rich [data-markering] {
+  padding-block: 0.04em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
 .antecknings-text,
 .anteckningsspalt {
   font-family: Georgia, "Times New Roman", serif;
   font-size: clamp(0.92rem, 1.2vw, 1.05rem);
   line-height: 1.75;
+}
+
+.antecknings-h1 {
+  font: 500 clamp(1.75rem, 3vw, 2.55rem)/1.08 var(--font-shell), sans-serif;
+  letter-spacing: -0.025em;
 }
 
 .antecknings-h2 {
@@ -4176,6 +4491,88 @@ input.dokdeck:focus {
   border-top: 1px dashed var(--ink);
 }
 
+/* Gloslistan är medvetet en arbetsyta, inte ett simulerat papper. */
+.glosarbetsyta {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: clamp(1rem, 3vw, 2.6rem);
+  background:
+    linear-gradient(90deg, rgb(17 17 17 / 0.035) 1px, transparent 1px) 0 0 / 28px 28px,
+    #ecebe6;
+}
+
+.glosdokument {
+  width: min(1080px, 100%);
+  margin: 0 auto;
+  border: 1px solid var(--ink);
+  background: var(--paper);
+  box-shadow: 0 16px 45px rgb(var(--ink-kanal) / 0.13);
+}
+
+.glosverktyg {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--ink);
+  background: #dceeb1;
+}
+
+.glostabell {
+  width: 100%;
+}
+
+.glosrad {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(170px, 1fr);
+  min-height: 72px;
+  align-items: stretch;
+  border-bottom: 1px solid rgb(var(--ink-kanal) / 0.18);
+}
+
+.glosrad:last-child {
+  border-bottom: 0;
+}
+
+.glosrad > * {
+  display: flex;
+  align-items: flex-start;
+  padding: 0.7rem;
+  border-right: 1px solid rgb(var(--ink-kanal) / 0.18);
+}
+
+.glosrad > *:last-child {
+  border-right: 0;
+}
+
+.glosrad-huvud {
+  min-height: 32px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.glosfalt {
+  width: 100%;
+  min-height: 72px;
+  resize: vertical;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: 0.8rem/1.55 var(--font-shell), sans-serif;
+  outline: 0;
+}
+
+.glosfalt:focus {
+  background: rgb(255 255 255 / 0.7);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
 @media (max-width: 900px) {
   .anteckningsbibliotek-topp {
     align-items: stretch;
@@ -4218,12 +4615,96 @@ input.dokdeck:focus {
     padding-inline: 0.45rem;
   }
 
-  .anteckningsark {
-    padding: 1rem 1.35rem 3rem 2.2rem;
+  .anteckningseditor-verktyg > .flex-1 {
+    flex-basis: 100%;
+  }
+
+  .anteckningsformat {
+    max-width: calc(100vw - 4.6rem);
+    overflow-x: auto;
+  }
+
+  .anteckningsarbetsyta {
+    padding: 0.55rem 0.3rem 2.5rem;
+  }
+
+  .anteckningspapper {
+    width: calc(100% - 0.5rem);
+    min-height: 140vw;
+    padding: 1.25rem 1.3rem 3rem 2.2rem;
   }
 
   .anteckningsblock-kontroller {
     right: calc(100% + 0.2rem);
     opacity: 0.65;
+  }
+
+  .glosarbetsyta {
+    padding: 0.55rem;
+  }
+
+  .glosrad {
+    grid-template-columns: minmax(112px, 1fr) minmax(132px, 1fr);
+  }
+
+  .glosverktyg {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@page {
+  size: A4;
+  margin: 0;
+}
+
+@media print {
+  html,
+  body {
+    width: 210mm;
+    min-height: 297mm;
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  .anteckningspapper,
+  .anteckningspapper * {
+    visibility: visible !important;
+  }
+
+  .anteckningspapper {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0;
+    padding: 18mm 20mm 22mm;
+    box-shadow: none;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .anteckningsblock-meny,
+  .anteckningsblock-kontroller,
+  .anteckningsrubrik-wrap > button,
+  .anteckningstabell-wrap > .flex,
+  .anteckningskopplingar {
+    display: none !important;
+  }
+
+  .anteckningsblock,
+  .anteckningstabell-wrap,
+  .anteckningsspalter {
+    break-inside: avoid;
+  }
+
+  .antecknings-rich:focus {
+    box-shadow: none;
+    padding-left: 0;
   }
 }

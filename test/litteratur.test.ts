@@ -3,8 +3,10 @@ import {
   framsteg,
   lasningPaDag,
   omslagston,
+  registreraLaspass,
   sorteraLaspass,
   summeraLasning,
+  taBortLaspass,
   tolkaLitteraturData,
   type Bok,
   type Laspass,
@@ -52,6 +54,8 @@ const pass = (delar: Partial<Laspass> = {}): Laspass => ({
   datum: "2026-09-04",
   bokId: "b1",
   sidor: 20,
+  franSida: null,
+  tillSida: null,
   minuter: 35,
   anteckning: "",
   skapad: "2026-09-04T20:00:00.000Z",
@@ -94,6 +98,45 @@ prov("läspass utan en befintlig bok faller bort", () => {
 
 prov("dagens läsning summerar sidor och minuter var för sig", () => {
   lika(summeraLasning([pass(), pass({ id: "p2", sidor: 12, minuter: null })]), { sidor: 32, minuter: 35 });
+});
+
+prov("ett läspass flyttar fram sidmarkören och minns intervallet", () => {
+  const data = registreraLaspass(
+    { version: 1, bocker: [bok({ aktuellSida: 130 })], laspass: [] },
+    pass({ sidor: 20 })
+  );
+  lika(data.bocker[0].aktuellSida, 150);
+  lika(
+    { fran: data.laspass[0].franSida, till: data.laspass[0].tillSida },
+    { fran: 130, till: 150 }
+  );
+});
+
+prov("ett läspass stannar vid bokens sista sida", () => {
+  const data = registreraLaspass(
+    { version: 1, bocker: [bok({ aktuellSida: 190 })], laspass: [] },
+    pass({ sidor: 20 })
+  );
+  lika(data.bocker[0].aktuellSida, 200);
+  lika(data.laspass[0].tillSida, 200);
+});
+
+prov("ett raderat läspass backar bokens framsteg", () => {
+  const medPass = registreraLaspass(
+    { version: 1, bocker: [bok({ aktuellSida: 130 })], laspass: [] },
+    pass({ sidor: 20 })
+  );
+  const utanPass = taBortLaspass(medPass, "p1");
+  lika(utanPass.bocker[0].aktuellSida, 130);
+  lika(utanPass.laspass, []);
+});
+
+prov("radering backar bara den del som rymdes före bokens slut", () => {
+  const medPass = registreraLaspass(
+    { version: 1, bocker: [bok({ aktuellSida: 190 })], laspass: [] },
+    pass({ sidor: 20 })
+  );
+  lika(taBortLaspass(medPass, "p1").bocker[0].aktuellSida, 190);
 });
 
 prov("läsning på en dag läcker inte till nästa", () => {

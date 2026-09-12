@@ -193,11 +193,19 @@ export interface Anteckning extends Synkbar {
  * att anteckningen blir beroende av en extern ordbehandlare.
  */
 export type Anteckningsblock =
-  | { id: string; typ: "rubrik"; text: string; niva: 2 | 3 }
+  | { id: string; typ: "rubrik"; text: string; niva: 1 | 2 | 3 }
   | { id: string; typ: "text"; text: string }
   | { id: string; typ: "citat"; text: string }
   | { id: string; typ: "spalter"; vanster: string; hoger: string }
-  | { id: string; typ: "tabell"; celler: string[][] };
+  | { id: string; typ: "tabell"; celler: string[][] }
+  | { id: string; typ: "glosor"; rader: Glosrad[] };
+
+/** En rad i det importvänliga glosformatet. */
+export interface Glosrad {
+  id: string;
+  term: string;
+  definition: string;
+}
 
 /**
  * En lapp i parkeringen — det som skall in i kalendern men ännu inte

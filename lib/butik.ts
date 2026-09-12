@@ -234,6 +234,22 @@ export function normaliseraAnteckning(a: Partial<Anteckning>): Anteckning {
         .replace(/\n/g, "<br>"),
     });
   }
+  // Den första gloslistan hann skapas i en tidigare version utan block.
+  // Den är tom och heter exakt "Glosor", så den kan migreras utan att
+  // något dokumentinnehåll eller någon annan anteckning feltolkas.
+  if (
+    block.length === 0 &&
+    !(a.brodtext ?? "").trim() &&
+    (a.titel ?? "").trim().toLocaleLowerCase("sv") === "glosor"
+  ) {
+    block.push({
+      id: `${a.id ?? "anteckning"}-glosor`,
+      typ: "glosor",
+      rader: [
+        { id: `${a.id ?? "anteckning"}-glosa-0`, term: "", definition: "" },
+      ],
+    });
+  }
   return {
     id: a.id ?? nyId(),
     titel: a.titel ?? "",
@@ -269,7 +285,7 @@ function normaliseraAnteckningsblock(
       id,
       typ: "rubrik",
       text: typeof b.text === "string" ? b.text : "",
-      niva: b.niva === 3 ? 3 : 2,
+      niva: b.niva === 1 || b.niva === 3 ? b.niva : 2,
     };
   }
   if (b.typ === "text" || b.typ === "citat") {
@@ -293,6 +309,30 @@ function normaliseraAnteckningsblock(
       id,
       typ: "tabell",
       celler: celler.length > 0 ? celler : [["Rubrik", "Rubrik"], ["", ""]],
+    };
+  }
+  if (b.typ === "glosor") {
+    const rader = Array.isArray(b.rader)
+      ? b.rader.flatMap((v, radIndex) => {
+          if (!v || typeof v !== "object" || Array.isArray(v)) return [];
+          const rad = v as Record<string, unknown>;
+          return [{
+            id:
+              typeof rad.id === "string" && rad.id
+                ? rad.id
+                : `${anteckningId}-glosa-${radIndex}`,
+            term: typeof rad.term === "string" ? rad.term : "",
+            definition:
+              typeof rad.definition === "string" ? rad.definition : "",
+          }];
+        })
+      : [];
+    return {
+      id,
+      typ: "glosor",
+      rader: rader.length > 0
+        ? rader
+        : [{ id: `${anteckningId}-glosa-0`, term: "", definition: "" }],
     };
   }
   return null;

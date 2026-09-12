@@ -308,6 +308,10 @@ export default function Sidopanel({
           </button>
         ))}
       </div>
+      <figure className="sidopanel-tavla" aria-hidden="true">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/stamning/apollo-mork.jpg" alt="" />
+      </figure>
       </div>
     </aside>
   );

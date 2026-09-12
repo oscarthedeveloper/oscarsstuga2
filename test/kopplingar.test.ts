@@ -63,6 +63,12 @@ const a = (id: string, titel: string, brodtext = ""): Anteckning =>
 
 process.stdout.write("\nKOPPLINGAR\n");
 
+prov("en äldre tom gloslista får sin tvåkolumnstabell tillbaka", () => {
+  const glosor = normaliseraAnteckning({ id: "g1", titel: "Glosor", block: [] });
+  lika(glosor.block[0]?.typ, "glosor");
+  if (glosor.block[0]?.typ === "glosor") lika(glosor.block[0].rader.length, 1);
+});
+
 prov("hittar länkar i text", () => {
   lika(hittaLankar("se [[Budget]] och [[Möte med Anna]]"), [
     "Budget",
