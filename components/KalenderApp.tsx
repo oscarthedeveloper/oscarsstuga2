@@ -925,6 +925,30 @@ export default function KalenderApp() {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            {/* Vyväxeln står alltid före sidväxeln och behåller sin bredd
+                även utanför kalendern. Därmed flyttar sig inte appens fyra
+                huvudsidor när vyknapparna blir irrelevanta och döljs. */}
+            <div
+              className="knapp-rad oscar-nav-vyer hidden md:flex"
+              data-visas={sida === "kalender" ? "1" : "0"}
+              aria-hidden={sida === "kalender" ? undefined : true}
+            >
+              {VYER.map((v) => (
+                <button
+                  key={v.id}
+                  type="button"
+                  className="knapp micro"
+                  data-aktiv={vy === v.id ? "1" : "0"}
+                  onClick={() => setVy(v.id)}
+                  disabled={sida !== "kalender"}
+                  tabIndex={sida === "kalender" ? 0 : -1}
+                  title={`${v.namn} (${v.tangent})`}
+                >
+                  {v.namn}
+                </button>
+              ))}
+            </div>
+
             {/* Sidväxeln göms på telefonen — bottenraden har den redan,
                 och navigeringsraden rymmer inte båda. */}
             <div className="knapp-rad hidden md:flex">
@@ -963,22 +987,6 @@ export default function KalenderApp() {
               >
                 Annat
               </button>
-            </div>
-
-            <div className="knapp-rad hidden md:flex">
-              {sida === "kalender" &&
-                VYER.map((v) => (
-                  <button
-                    key={v.id}
-                    type="button"
-                    className="knapp micro"
-                    data-aktiv={vy === v.id ? "1" : "0"}
-                    onClick={() => setVy(v.id)}
-                    title={`${v.namn} (${v.tangent})`}
-                  >
-                    {v.namn}
-                  </button>
-                ))}
             </div>
 
             <HamtaKnapp />

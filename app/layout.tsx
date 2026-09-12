@@ -1,33 +1,16 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Newsreader, Martian_Mono } from "next/font/google";
+import { Martian_Mono } from "next/font/google";
 import "./globals.css";
 import ButikProvider from "@/components/Butik";
 import Offline from "@/components/Offline";
 
-/* Endast två familjer: hög-kontrast antikva till rubriker och siffror,
-   monospace till allt annat. Ingen grotesk. Samma val som på Fornsvenska.
-   Typsnitten bakas in i bygget av next/font, vilket också är det som gör
-   att de finns kvar när enheten är offline. */
-const display = Newsreader({
-  subsets: ["latin"],
-  weight: ["400"],
-  style: ["normal"],
-  variable: "--font-display",
-  display: "swap",
-});
-
-const mono = Martian_Mono({
+/* Georgia finns i systemet och används för all antikva. Pico-stilen
+   bakas in som appens kompakta gränssnittstypografi så att den också
+   fungerar utan nät. Inget separat skaltypsnitt laddas. */
+const pico = Martian_Mono({
   subsets: ["latin"],
   weight: ["400", "500"],
-  variable: "--font-mono",
-  display: "swap",
-});
-
-/* Det nya appskalet använder en neutral variabel sans, medan kalendern
-   och sidornas innehåll behåller Newsreader och Martian Mono. */
-const shell = Inter({
-  subsets: ["latin"],
-  variable: "--font-shell",
+  variable: "--font-pico",
   display: "swap",
 });
 
@@ -79,10 +62,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html
-      lang="sv"
-      className={`${display.variable} ${mono.variable} ${shell.variable}`}
-    >
+    <html lang="sv" className={pico.variable}>
       <body>
         <ButikProvider>
           {children}

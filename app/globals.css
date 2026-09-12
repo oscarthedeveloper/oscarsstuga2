@@ -83,7 +83,7 @@ body {
 }
 
 body {
-  font-family: var(--font-mono), "Space Mono", ui-monospace, monospace;
+  font-family: var(--font-pico), monospace;
   font-weight: 400;
   -webkit-font-smoothing: antialiased;
   overscroll-behavior: none;
@@ -139,7 +139,7 @@ body {
    TYPOGRAFI — två familjer, ingen grotesk
    ------------------------------------------------------------------ */
 .display {
-  font-family: var(--font-display), Georgia, serif;
+  font-family: Georgia, "Times New Roman", serif;
   font-weight: 400;
 }
 
@@ -659,7 +659,7 @@ select.falt {
 }
 
 .manadsruta-tal {
-  font-family: var(--font-display), Georgia, serif;
+  font-family: Georgia, "Times New Roman", serif;
   font-size: 0.95rem;
   line-height: 1;
 }
@@ -886,7 +886,7 @@ select.falt {
 }
 
 .anteckning-titel {
-  font-family: var(--font-display), Georgia, serif;
+  font-family: Georgia, "Times New Roman", serif;
   font-size: 0.98rem;
   line-height: 1.3;
   overflow-wrap: anywhere;
@@ -988,14 +988,14 @@ select.falt {
 
 /* Stora tal — den enda plats i appen där siffran ÄR innehållet. */
 .stortal {
-  font-family: var(--font-display), Georgia, serif;
+  font-family: Georgia, "Times New Roman", serif;
   font-size: 2.3rem;
   line-height: 0.95;
   font-variant-numeric: tabular-nums;
 }
 
 .medeltal {
-  font-family: var(--font-display), Georgia, serif;
+  font-family: Georgia, "Times New Roman", serif;
   font-size: 1.15rem;
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -1247,8 +1247,8 @@ select.falt {
 
    En regel bär hela uppställningen: ANTIKVA FÖR DET MAN LÄSER,
    MONOSPACE FÖR APPARATEN. Titel, avsnittsrubrik, citat, brödtext och
-   kommentar sätts i Newsreader; brödsmula, etiketter, källor, tabelldata
-   och märken i Martian Mono. Ingenting blandas, och det är den enda
+   kommentar sätts i Georgia; brödsmula, etiketter, källor, tabelldata
+   och märken i Pico-stilen. Ingenting blandas, och det är den enda
    anledningen att uppställningen håller ihop trots att den bär sex olika
    sorters innehåll.
    ------------------------------------------------------------------ */
@@ -1276,7 +1276,7 @@ select.falt {
 }
 
 .doktitel {
-  font-family: var(--font-display), Georgia, serif;
+  font-family: Georgia, "Times New Roman", serif;
   font-weight: 400;
   font-size: 2.4rem;
   line-height: 1.05;
@@ -1334,7 +1334,7 @@ input.dokdeck:focus {
 
 /* Avsnittsrubriken inne i ett blad. */
 .dokrubrik {
-  font-family: var(--font-display), Georgia, serif;
+  font-family: Georgia, "Times New Roman", serif;
   font-weight: 400;
   font-size: 1.8rem;
   line-height: 1.22;
@@ -1344,7 +1344,7 @@ input.dokdeck:focus {
 /* Brödtexten. Antikva, generöst radavstånd — det enda stället i appen
    där man läser mer än en mening i rad. */
 .brodtext {
-  font-family: var(--font-display), Georgia, serif;
+  font-family: Georgia, "Times New Roman", serif;
   font-size: 1.02rem;
   line-height: 1.75;
   white-space: pre-wrap;
@@ -1352,7 +1352,7 @@ input.dokdeck:focus {
 }
 
 .brodtext code {
-  font-family: var(--font-mono), ui-monospace, monospace;
+  font-family: var(--font-pico), monospace;
   background: rgb(17 17 17 / 0.06);
   padding: 0.05em 0.3em;
   font-size: 0.84em;
@@ -1380,7 +1380,7 @@ input.dokdeck:focus {
 }
 
 .belaggtext {
-  font-family: var(--font-display), Georgia, serif;
+  font-family: Georgia, "Times New Roman", serif;
   font-weight: 400;
   line-height: 1.3;
   font-size: 1.75rem;
@@ -3758,47 +3758,38 @@ input.dokdeck:focus {
 }
 
 /* ==================================================================
-   FIGMA-INSPIRERAT APPSKAL
+   ENHETLIGT APPSKAL
 
-   Detta är medvetet avgränsat till skalet. Kalenderns rutnät, Annats
-   sidkomponenter och redigeringspanelerna behåller sin äldre grammatik.
+   Skalet använder samma grammatik som kalendern och sektionerna:
+   pappersyta, enpixelslinjer, räta hörn, Georgia och Pico-typografi.
+   Det finns ingen separat webbplatsestetik ovanpå själva verktyget.
    ================================================================== */
-:root {
-  --shell-canvas: #ffffff;
-  --shell-soft: #f7f7f5;
-  --shell-hairline: #e6e6e6;
-  --shell-lime: #dceeb1;
-  --shell-lilac: #c5b0f4;
-  --shell-coral: #f3c9b6;
-  --shell-magenta: #ff3d8b;
-}
-
 .oscar-shell {
-  background: var(--shell-canvas);
-  font-family: var(--font-shell), Inter, system-ui, -apple-system, sans-serif;
+  background: var(--paper);
+  font-family: var(--font-pico), monospace;
 }
 
 .oscar-frame {
   height: calc(100dvh - 2.4vw);
   min-height: 420px;
   overflow: hidden;
-  border: 1px solid var(--shell-hairline);
-  border-radius: 22px;
+  border: 1px solid var(--ink);
+  border-radius: 0;
   background: var(--paper);
   display: flex;
   flex-direction: column;
 }
 
 .oscar-topnav {
-  background: var(--shell-canvas);
-  border-bottom-color: var(--shell-hairline);
-  font-family: var(--font-shell), Inter, system-ui, sans-serif;
+  background: var(--paper);
+  border-bottom-color: var(--ink);
+  font-family: var(--font-pico), monospace;
 }
 
 .oscar-topnav .display {
-  font-family: var(--font-shell), Inter, system-ui, sans-serif;
-  font-weight: 540;
-  letter-spacing: -0.025em;
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 400;
+  letter-spacing: -0.015em;
 }
 
 /* Vanliga sidor har en rubrik i två rader. På bred skärm ska den börja
@@ -3813,24 +3804,32 @@ input.dokdeck:focus {
   }
 }
 
+/* Kalendern har fler vyreglage än de andra sidorna. På vanliga
+   laptopbredder får datumet företräde; varumärket återkommer på större skärmar. */
+@media (min-width: 1024px) and (max-width: 1399px) {
+  .oscar-topnav .oscar-brand {
+    display: none;
+  }
+}
+
 .oscar-topnav .micro,
 .oscar-topnav .pico {
-  font-family: var(--font-shell), Inter, system-ui, sans-serif;
-  text-transform: none;
-  letter-spacing: -0.01em;
-  font-weight: 480;
+  font-family: var(--font-pico), monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  font-weight: 500;
 }
 
 .oscar-topnav .knapp {
-  min-height: 34px;
-  border-color: transparent;
-  border-radius: 9999px;
-  background: var(--shell-soft);
-  padding-inline: 0.78rem;
+  min-height: 30px;
+  border-color: var(--ink);
+  border-radius: 0;
+  background: var(--panel);
+  padding-inline: 0.66rem;
 }
 
 .oscar-topnav .knapp:hover {
-  background: var(--shell-lime);
+  background: var(--kal-1);
 }
 
 .oscar-topnav .knapp[data-aktiv="1"] {
@@ -3839,40 +3838,47 @@ input.dokdeck:focus {
 }
 
 .oscar-topnav .knapp[data-ton="accent"] {
-  background: var(--shell-magenta);
-  color: #fff;
+  background: var(--accent);
+  color: var(--ink);
 }
 
 .oscar-topnav .knapp-rad {
-  gap: 3px;
-  padding: 3px;
-  border-radius: 9999px;
-  background: var(--shell-soft);
+  gap: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .oscar-topnav .knapp-rad > .knapp + .knapp {
-  margin-left: 0;
+  margin-left: -1px;
+}
+
+/* Vyknapparna är bara verksamma i kalendern, men deras utrymme ligger
+   kvar på övriga sidor så att huvudnavigeringen aldrig hoppar i sidled. */
+.oscar-nav-vyer[data-visas="0"] {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .oscar-marke {
-  border-radius: 8px;
+  border-radius: 0;
 }
 
 .molnremsa {
-  background: var(--shell-coral);
-  border-bottom-color: var(--shell-hairline);
-  font-family: var(--font-shell), Inter, system-ui, sans-serif;
+  background: var(--kal-3);
+  border-bottom-color: var(--ink);
+  font-family: var(--font-pico), monospace;
 }
 
 .molnremsa .knapp {
-  border: 0;
-  border-radius: 9999px;
-  background: #000;
-  color: #fff;
+  border: 1px solid var(--ink);
+  border-radius: 0;
+  background: var(--paper);
+  color: var(--ink);
 }
 
 .oscar-marquee {
-  font-family: var(--font-shell), Inter, system-ui, sans-serif;
+  font-family: var(--font-pico), monospace;
 }
 
 .oscar-marquee .pico {
@@ -3880,21 +3886,20 @@ input.dokdeck:focus {
 }
 
 .bottenrad {
-  background: var(--shell-canvas);
-  border-top-color: var(--shell-hairline);
-  font-family: var(--font-shell), Inter, system-ui, sans-serif;
-  padding: 4px;
-  gap: 3px;
+  background: var(--paper);
+  border-top-color: var(--ink);
+  font-family: var(--font-pico), monospace;
+  padding: 0;
+  gap: 0;
 }
 
 .bottenrad > div {
-  gap: 3px;
+  gap: 0;
 }
 
 .bottenrad .knapp {
-  border: 0 !important;
-  border-radius: 9999px;
-  background: var(--shell-soft);
+  border-radius: 0;
+  background: var(--panel);
 }
 
 .bottenrad .knapp[data-aktiv="1"] {
@@ -3903,8 +3908,8 @@ input.dokdeck:focus {
 }
 
 .bottenrad .knapp[data-ton="accent"] {
-  background: var(--shell-magenta);
-  color: #fff;
+  background: var(--accent);
+  color: var(--ink);
 }
 
 @media (max-width: 900px) {
@@ -4034,7 +4039,7 @@ input.dokdeck:focus {
   justify-content: center;
   border-style: dashed;
   background: rgb(255 255 255 / 0.35);
-  font: 300 2rem/1 var(--font-shell), sans-serif;
+  font: 400 2rem/1 Georgia, "Times New Roman", serif;
   opacity: 0.55;
 }
 
@@ -4308,7 +4313,7 @@ input.dokdeck:focus {
 
 .anteckningspapper-huvud h1 {
   margin-top: 2mm;
-  font-family: var(--font-display), Georgia, serif;
+  font-family: Georgia, "Times New Roman", serif;
   font-size: 2.25rem;
   font-weight: 400;
   line-height: 1.08;
@@ -4418,16 +4423,16 @@ input.dokdeck:focus {
 }
 
 .antecknings-h1 {
-  font: 500 clamp(1.75rem, 3vw, 2.55rem)/1.08 var(--font-shell), sans-serif;
+  font: 400 clamp(1.75rem, 3vw, 2.55rem)/1.08 Georgia, "Times New Roman", serif;
   letter-spacing: -0.025em;
 }
 
 .antecknings-h2 {
-  font: 500 clamp(1.35rem, 2.4vw, 2rem)/1.15 var(--font-shell), sans-serif;
+  font: 400 clamp(1.35rem, 2.4vw, 2rem)/1.15 Georgia, "Times New Roman", serif;
 }
 
 .antecknings-h3 {
-  font: 600 clamp(1rem, 1.6vw, 1.25rem)/1.25 var(--font-shell), sans-serif;
+  font: 700 clamp(1rem, 1.6vw, 1.25rem)/1.25 Georgia, "Times New Roman", serif;
 }
 
 .anteckningsrubrik-wrap {
@@ -4564,7 +4569,7 @@ input.dokdeck:focus {
   border: 0;
   background: transparent;
   color: inherit;
-  font: 0.8rem/1.55 var(--font-shell), sans-serif;
+  font: 0.8rem/1.55 var(--font-pico), monospace;
   outline: 0;
 }
 

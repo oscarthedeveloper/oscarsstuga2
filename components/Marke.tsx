@@ -1,4 +1,4 @@
-/** Ett eget femdelat databas-märke i det nya skalets pastellpalett. */
+/** En liten kalendercell: samma räta linjer och accent som arbetsytan. */
 export default function Marke() {
   return (
     <svg
@@ -9,11 +9,10 @@ export default function Marke() {
       focusable="false"
       className="shrink-0 oscar-marke"
     >
-      <rect x="1" y="1" width="13" height="9" rx="4.5" fill="var(--shell-coral)" />
-      <rect x="14" y="1" width="13" height="9" rx="4.5" fill="var(--shell-lilac)" />
-      <rect x="1" y="10" width="13" height="9" rx="4.5" fill="var(--shell-lime)" />
-      <circle cx="20.5" cy="14.5" r="4.5" fill="var(--shell-magenta)" />
-      <rect x="1" y="19" width="13" height="8" rx="4" fill="#000" />
+      <rect x="0.5" y="0.5" width="27" height="27" fill="var(--paper)" stroke="var(--ink)" />
+      <rect x="1" y="1" width="26" height="6" fill="var(--ink)" />
+      <path d="M9.5 7v20M18.5 7v20M1 16.5h26" fill="none" stroke="var(--ink)" />
+      <rect x="10" y="17" width="8" height="10" fill="var(--accent)" />
     </svg>
   );
 }

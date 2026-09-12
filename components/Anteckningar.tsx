@@ -502,6 +502,7 @@ function Dokumentredigerare({
   const oppnaUtskrift = () => {
     const papper = papperRef.current;
     if (!papper) return;
+    const typografiKlass = document.documentElement.className;
     const utskrift = window.open("", "_blank", "popup,width=980,height=860");
     if (!utskrift) {
       setUtskriftsstatus("Tillåt popup-fönster och försök igen.");
@@ -516,7 +517,7 @@ function Dokumentredigerare({
       .join("\n");
     utskrift.document.open();
     utskrift.document.write(`<!doctype html>
-      <html lang="sv">
+      <html lang="sv" class="${typografiKlass}">
         <head>
           <meta charset="utf-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -524,7 +525,7 @@ function Dokumentredigerare({
           ${stilar}
           <style>
             body.utskriftssida { height:auto; min-height:100%; overflow:auto; padding:24px; background:#d8d7d2; }
-            .utskriftskontroll { position:sticky; z-index:20; top:0; display:flex; align-items:center; justify-content:center; gap:14px; width:min(210mm, 100%); margin:0 auto 18px; padding:10px 12px; border:1px solid #111; background:#f7f7f5; color:#111; font:12px/1.4 sans-serif; }
+            .utskriftskontroll { position:sticky; z-index:20; top:0; display:flex; align-items:center; justify-content:center; gap:14px; width:min(210mm, 100%); margin:0 auto 18px; padding:10px 12px; border:1px solid #111; background:#f7f7f5; color:#111; font:12px/1.4 var(--font-pico), monospace; }
             .utskriftskontroll button { padding:7px 12px; border:1px solid #111; background:#ff5c39; cursor:pointer; }
             body.utskriftssida .anteckningspapper { width:min(210mm, 100%); margin:0 auto; }
             body.utskriftssida .anteckningsblock-meny,

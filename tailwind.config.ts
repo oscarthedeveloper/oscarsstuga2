@@ -19,8 +19,8 @@ const config: Config = {
         azure: "rgb(var(--azure-kanal) / <alpha-value>)",
       },
       fontFamily: {
-        display: ["var(--font-display)", "Georgia", "serif"],
-        mono: ["var(--font-mono)", "Space Mono", "monospace"],
+        display: ["Georgia", "serif"],
+        mono: ["var(--font-pico)", "monospace"],
       },
     },
   },
