@@ -257,6 +257,14 @@ prov("appskalet ritas utan att kasta", () => {
   innehaller(html, "Hantera");
   // Sidväxeln mellan kalendern och att göra.
   innehaller(html, "Att göra");
+  // Vyvalen skall ligga före huvudsidornas navigering. Gruppen finns
+  // alltid kvar i skalet så att sidlänkarna inte hoppar när den döljs.
+  const vyval = html.indexOf("oscar-nav-vyer");
+  const sidval = html.indexOf(">Kalender</button>", vyval);
+  if (vyval < 0 || sidval < 0 || vyval > sidval) {
+    throw new Error("vyvalen ligger inte före huvudnavigeringen");
+  }
+  innehaller(html, 'data-visas="1"');
   // Tvångshämtningen kan inte göra något utan inloggning och skall inte
   // ritas — men statusknappen SKALL finnas, annars har den som undrar
   // varför inget synkas ingenstans att fråga.
